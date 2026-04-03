@@ -1,4 +1,3 @@
-
 DOTFILES_DIR=~/dotfiles
 
 cd "$DOTFILES_DIR"

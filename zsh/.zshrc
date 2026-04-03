@@ -1,15 +1,10 @@
-# Created by newuser for 5.9
-# >>> INÍCIO DO ZSHRC BONITÃO <<<
-
-# Starship prompt
 eval "$(starship init zsh)"
 
-# Mostrar Fastfetch SOMENTE quando for um terminal interativo (não scripts)
+
 if [[ $- == *i* ]]; then
   fastfetch
 fi
 
-# Histórico com timestamp
 HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
@@ -18,7 +13,7 @@ setopt HIST_IGNORE_DUPS
 setopt HIST_FIND_NO_DUPS
 setopt SHARE_HISTORY
 
-# Autocompletar com seta pra cima
+
 autoload -Uz up-line-or-beginning-search
 autoload -Uz down-line-or-beginning-search
 zle -N up-line-or-beginning-search
@@ -31,7 +26,7 @@ alias ls='eza --icons'
 alias ll='eza -lah --icons'
 alias la='eza -a --icons'
 alias lt='eza --tree --icons'
-alias cat='bat' # (If installed later)
+alias cat='bat'
 alias gs='git status'
 alias ga='git add .'
 alias gc='git commit -m'
