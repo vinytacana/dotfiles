@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:niri:*) exec /usr/bin/mako --config "$HOME/.config/niri/mako.conf" ;;
+    *) exec /usr/bin/mako ;;
+esac

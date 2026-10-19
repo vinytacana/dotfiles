@@ -1,0 +1,9 @@
+[Unit]
+Description=Niri rice: wallpaper
+PartOf=niri-rice.target graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+[Service]
+ExecStart=/usr/bin/swaybg -i %h/.config/niri/wallpaper.png -m fill
+Restart=on-failure
+RestartSec=3

@@ -1,0 +1,89 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "spacing": 6,
+  "margin-top": 6,
+  "margin-left": 8,
+  "margin-right": 8,
+  "modules-left": [
+    "niri/workspaces",
+    "niri/window"
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "cpu",
+    "memory",
+    "network",
+    "pulseaudio",
+    "bluetooth",
+    "battery",
+    "custom/notifications",
+    "tray"
+  ],
+  "niri/workspaces": {
+    "format": "{name}",
+    "all-outputs": false
+  },
+  "niri/window": {
+    "format": "{}",
+    "max-length": 38
+  },
+  "clock": {
+    "format": "{:%a %d/%m  %H:%M}",
+    "tooltip-format": "{:%A, %d de %B de %Y}"
+  },
+  "cpu": {
+    "format": "CPU {usage}%",
+    "interval": 5
+  },
+  "memory": {
+    "format": "RAM {percentage}%",
+    "interval": 5,
+    "tooltip-format": "{used:.1f} / {total:.1f} GiB"
+  },
+  "network": {
+    "format-wifi": "Wi-Fi {signalStrength}%",
+    "format-ethernet": "LAN",
+    "format-disconnected": "Offline",
+    "tooltip-format": "{ifname} · {essid}",
+    "on-click": "nm-connection-editor"
+  },
+  "pulseaudio": {
+    "format": "VOL {volume}%",
+    "format-muted": "Mudo",
+    "on-click": "pavucontrol",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "scroll-step": 5,
+    "max-volume": 100
+  },
+  "bluetooth": {
+    "format": "BT {status}",
+    "format-disabled": "",
+    "format-off": "BT off",
+    "on-click": "blueman-manager"
+  },
+  "battery": {
+    "bat": "BAT0",
+    "format": "BAT {capacity}%",
+    "format-charging": "+ {capacity}%",
+    "states": {
+      "warning": 25,
+      "critical": 10
+    },
+    "interval": 30
+  },
+  "custom/notifications": {
+    "exec": "~/.config/niri/scripts/notifications",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "makoctl mode -t do-not-disturb",
+    "on-click-right": "makoctl dismiss -a"
+  },
+  "tray": {
+    "spacing": 8,
+    "icon-size": 16
+  }
+}

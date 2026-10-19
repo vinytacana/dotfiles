@@ -1,0 +1,21 @@
+#!/usr/bin/python3
+"""Gera o wallpaper geométrico Mocha sem downloads ou serviços adicionais."""
+from pathlib import Path
+import cairo
+p=Path(__file__).resolve().parent.parent/'wallpaper.png'
+surface=cairo.ImageSurface(cairo.FORMAT_RGB24,1920,1080)
+c=cairo.Context(surface)
+def color(hex):
+    c.set_source_rgb(*(int(hex[i:i+2],16)/255 for i in (0,2,4)))
+color('1e1e2e'); c.paint()
+color('313244'); c.arc(1460,320,150,0,6.283185307); c.fill()
+color('cba6f7'); c.set_line_width(2); c.arc(1460,320,165,0,6.283185307); c.stroke()
+for shade,points in [
+    ('313244',[(0,850),(420,500),(820,890),(1250,570),(1920,920)]),
+    ('45475a',[(0,1020),(500,760),(980,1000),(1510,700),(1920,960)]),
+    ('181825',[(0,1000),(470,920),(1040,1040),(1620,890),(1920,980)])]:
+    color(shade); c.move_to(*points[0])
+    for point in points[1:]: c.line_to(*point)
+    c.line_to(1920,1080); c.line_to(0,1080); c.close_path(); c.fill()
+surface.write_to_png(str(p))
+print(p)

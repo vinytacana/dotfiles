@@ -1,0 +1,5 @@
+[Unit]
+Description=Niri rice components
+BindsTo=niri.service
+After=niri.service
+Wants=niri-rice-bar.service mako.service niri-rice-wallpaper.service niri-rice-idle.service niri-rice-polkit.service

@@ -1,0 +1,34 @@
+#!/usr/bin/python3
+"""Validação sem iniciar compositor, barra ou bloqueador na sessão atual."""
+import hashlib, json, shutil, subprocess, sys, tomllib
+from pathlib import Path
+home=Path.home(); root=home/'.config/niri'; failures=[]
+def run(name,args):
+    result=subprocess.run(args,text=True,capture_output=True)
+    print(f'{name}: {"OK" if result.returncode == 0 else "FALHOU"}')
+    if result.returncode:
+        failures.append(name)
+        print(result.stderr.strip())
+for name in ['niri','waybar','fuzzel','mako','swaybg','swaylock','swayidle','xwayland-satellite',
+             'alacritty','starship','zsh','btop','nautilus','wpctl','nmcli','bluetoothctl','wl-copy','wl-paste','brightnessctl']:
+    if not shutil.which(name): failures.append(name); print(f'AUSENTE: {name}')
+if shutil.which('niri'): run('Niri', ['niri','validate','--config',str(root/'config.kdl')])
+if shutil.which('fuzzel'): run('Fuzzel', ['fuzzel','--check-config','--config',str(root/'fuzzel.ini')])
+json.loads((root/'waybar.jsonc').read_text()); print('Waybar JSON: OK')
+try:
+    import gi
+    gi.require_version('Gtk','3.0')
+    from gi.repository import Gtk
+    css=Gtk.CssProvider(); css.load_from_path(str(root/'waybar.css'))
+    print('Waybar GTK3 CSS: OK')
+except Exception as exc:
+    failures.append('CSS'); print(exc)
+for f in [home/'.config/alacritty/alacritty.toml',home/'.config/alacritty/niri.toml']:
+    tomllib.loads(f.read_text())
+print('Alacritty TOML: OK')
+run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
+for name in ['lock','idle','mako-session']: run(name,['sh','-n',str(root/'scripts'/name)])
+for p in [Path('/usr/share/wayland-sessions/niri.desktop'),Path('/usr/share/wayland-sessions/gnome.desktop'),Path('/usr/libexec/polkit-mate-authentication-agent-1')]:
+    if not p.exists(): failures.append(str(p)); print(f'AUSENTE: {p}')
+print('Teste gráfico, autenticação do bloqueio, suspensão e portais: MANUAL na sessão Niri.')
+sys.exit(bool(failures))

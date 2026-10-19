@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+import json, subprocess
+try:
+    r = subprocess.run(['makoctl', 'mode'], capture_output=True, text=True, timeout=2, check=True)
+    paused = 'do-not-disturb' in r.stdout.splitlines()
+    print(json.dumps({'text': 'DND' if paused else 'N', 'class': 'paused' if paused else 'active',
+                      'tooltip': 'Não perturbe' if paused else 'Notificações ativas'}))
+except (OSError, subprocess.SubprocessError):
+    print(json.dumps({'text': 'N?', 'class': 'unavailable', 'tooltip': 'Mako indisponível'}))

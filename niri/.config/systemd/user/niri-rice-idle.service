@@ -1,0 +1,9 @@
+[Unit]
+Description=Niri rice: idle
+PartOf=niri-rice.target graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+[Service]
+ExecStart=%h/.config/niri/scripts/idle
+Restart=on-failure
+RestartSec=3

@@ -1,0 +1,10 @@
+# Importa todas as preferências pessoais; overrides somente nesta sessão.
+[general]
+import = ["~/.config/alacritty/alacritty.toml"]
+[window]
+opacity = 0.94
+decorations = "none"
+padding = { x = 12, y = 10 }
+[colors.primary]
+background = "#1e1e2e"
+foreground = "#cdd6f4"
