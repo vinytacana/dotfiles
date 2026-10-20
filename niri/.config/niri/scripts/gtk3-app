@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Local GTK3 theme override for utilities opened from the rice."""
+import os
+import sys
+sys.dont_write_bytecode = True
+from rice_common import appearance
+if len(sys.argv) != 2 or sys.argv[1] not in {'blueman-manager', 'nm-connection-editor'}:
+    sys.exit('Use gtk3-app blueman-manager|nm-connection-editor')
+os.environ['GTK_THEME'] = 'Adwaita:dark' if appearance()['style'] == 'dark' else 'Adwaita'
+os.execvp(sys.argv[1], [sys.argv[1]])
