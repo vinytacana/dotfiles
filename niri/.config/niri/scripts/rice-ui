@@ -1,0 +1,517 @@
+#!/usr/bin/python3
+"""On-demand GTK3 settings and layer-shell monthly calendar for Niri."""
+import calendar
+import datetime
+import json
+import locale
+import os
+from pathlib import Path
+import subprocess
+import sys
+import threading
+sys.dont_write_bytecode = True
+
+os.environ['LANGUAGE'] = 'pt_BR'
+try:
+    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+except locale.Error:
+    pass
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('GtkLayerShell', '0.1')
+from gi.repository import Gtk, Gdk, Gio, GLib, GtkLayerShell
+GLib.set_prgname('org.niri.Rice')
+from rice_common import ROOT, STATE, favorites, save_favorites, desktop, appearance, write_json, reload_bar, run, start_desktop, open_or_focus
+
+MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+
+def query(args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=3).strip()
+    except (OSError, subprocess.SubprocessError):
+        return 'Indisponível'
+
+
+def label(text, style=None):
+    widget = Gtk.Label(label=text, xalign=0)
+    widget.set_line_wrap(True)
+    if style:
+        widget.get_style_context().add_class(style)
+    return widget
+
+
+def button(text, callback, icon=None):
+    widget = Gtk.Button(label=text)
+    if icon:
+        widget.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
+        widget.set_always_show_image(True)
+    widget.connect('clicked', lambda *_: callback())
+    return widget
+
+
+def async_update(work, done):
+    def task():
+        try:
+            value = work()
+        except Exception as error:
+            value = str(error)
+        GLib.idle_add(lambda: (done(value), False)[1])
+    threading.Thread(target=task, daemon=True).start()
+
+
+def app_image(app, size=28):
+    image = Gtk.Image.new_from_gicon(app.get_icon(), Gtk.IconSize.DIALOG)
+    image.set_pixel_size(size)
+    return image
+
+
+class CalendarWindow(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title='Calendário do Niri')
+        self.app = app
+        self.set_name('calendar-panel')
+        self.set_decorated(False)
+        GtkLayerShell.init_for_window(self)
+        GtkLayerShell.set_namespace(self, 'niri-calendar')
+        GtkLayerShell.set_layer(self, GtkLayerShell.Layer.TOP)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.TOP, True)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.TOP, 48)
+        GtkLayerShell.set_keyboard_mode(self, GtkLayerShell.KeyboardMode.ON_DEMAND)
+        GtkLayerShell.set_exclusive_zone(self, 0)
+        self.set_default_size(370, 360)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        outer.set_border_width(18)
+        self.add(outer)
+        heading = Gtk.Box(spacing=8)
+        self.month_title = label('', 'section-title')
+        heading.pack_start(button('‹', lambda: self.navigate(-1)), False, False, 0)
+        heading.pack_start(self.month_title, True, True, 0)
+        heading.pack_start(button('›', lambda: self.navigate(1)), False, False, 0)
+        heading.pack_start(button('×', self.destroy), False, False, 0)
+        outer.pack_start(heading, False, False, 0)
+        self.grid = Gtk.Grid(column_homogeneous=True, row_homogeneous=True, column_spacing=4, row_spacing=4)
+        outer.pack_start(self.grid, True, True, 0)
+        footer = Gtk.Box(spacing=8)
+        footer.pack_start(button('Hoje', self.today, 'go-home-symbolic'), True, True, 0)
+        footer.pack_start(button('Abrir Calendário', lambda: self.app.safe(lambda: start_desktop('org.gnome.Calendar.desktop')), 'x-office-calendar-symbolic'), True, True, 0)
+        outer.pack_start(footer, False, False, 0)
+        self.connect('key-press-event', self.key)
+        # Layer surfaces can receive an initial focus-out before their first map.
+        # Only a real focus transition should dismiss the popup.
+        self.had_focus = False
+        self.connect('focus-in-event', self.on_focus_in)
+        self.connect('focus-out-event', self.on_focus_out)
+        self.today()
+
+    def on_focus_in(self, *_):
+        self.had_focus = True
+        return False
+
+    def on_focus_out(self, *_):
+        if self.had_focus:
+            self.destroy()
+        return False
+
+    def today(self):
+        now = datetime.date.today()
+        self.year, self.month = now.year, now.month
+        self.render()
+
+    def navigate(self, delta):
+        index = self.year * 12 + self.month - 1 + delta
+        self.year, zero = divmod(index, 12)
+        self.month = zero + 1
+        self.render()
+
+    def key(self, _widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        if event.keyval in (Gdk.KEY_Page_Up, Gdk.KEY_Page_Down):
+            self.navigate(-1 if event.keyval == Gdk.KEY_Page_Up else 1)
+            return True
+        return False
+
+    def render(self):
+        for child in self.grid.get_children():
+            self.grid.remove(child)
+        self.month_title.set_text(f'{MONTHS[self.month-1]} {self.year}')
+        for column, day in enumerate(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']):
+            self.grid.attach(label(day, 'muted'), column, 0, 1, 1)
+        now = datetime.date.today()
+        weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(self.year, self.month)
+        for row, week in enumerate(weeks, 1):
+            for col, day in enumerate(week):
+                cell = Gtk.Label(label=str(day) if day else '')
+                cell.set_size_request(40, 34)
+                cell.get_style_context().add_class('day')
+                if day and datetime.date(self.year, self.month, day) == now:
+                    cell.get_style_context().add_class('today')
+                self.grid.attach(cell, col, row, 1, 1)
+        self.grid.show_all()
+
+
+class SettingsWindow(Gtk.ApplicationWindow):
+    def __init__(self, app, page='Rede', selected=None):
+        super().__init__(application=app, title='Configurações do Niri')
+        self.app = app
+        self.selected = selected
+        self.set_default_size(960, 700)
+        self.set_name('settings-panel')
+        self.set_icon_name('preferences-system')
+        header = Gtk.HeaderBar(title='Configurações do Niri', subtitle='Seu desktop, do seu jeito')
+        header.set_show_close_button(True)
+        self.set_titlebar(header)
+        self.message = label('', 'muted')
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.add(root)
+        body = Gtk.Box(spacing=20)
+        body.set_border_width(18)
+        root.pack_start(body, True, True, 0)
+        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=100)
+        sidebar = Gtk.StackSidebar(stack=self.stack)
+        sidebar.set_size_request(185, -1)
+        body.pack_start(sidebar, False, False, 0)
+        body.pack_start(self.stack, True, True, 0)
+        root.pack_end(self.message, False, False, 10)
+        self.sections = {}
+        for name, icon, builder in [
+            ('Rede','network-wireless-symbolic',self.network), ('Bluetooth','bluetooth-symbolic',self.bluetooth),
+            ('Áudio','audio-volume-high-symbolic',self.audio), ('Monitores','video-display-symbolic',self.monitors),
+            ('Aparência','applications-graphics-symbolic',self.look), ('Energia','battery-good-symbolic',self.energy),
+            ('Sistema','computer-symbolic',self.system), ('Favoritos','starred-symbolic',self.favorites_page)]:
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+            box.set_border_width(8)
+            title = Gtk.Box(spacing=10)
+            image = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+            title.pack_start(image, False, False, 0)
+            title.pack_start(label(name, 'page-title'), True, True, 0)
+            box.pack_start(title, False, False, 0)
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+            scroll.add(box)
+            self.stack.add_titled(scroll, name, name)
+            self.sections[name] = (box, builder, False)
+        self.stack.connect('notify::visible-child-name', lambda *_: self.build_page())
+        self.stack.show_all()
+        self.stack.set_visible_child_name(page)
+        self.build_page()
+        self.connect('key-press-event', lambda _w, event: (self.destroy(), True)[1] if event.keyval == Gdk.KEY_Escape else False)
+
+    def build_page(self):
+        name = self.stack.get_visible_child_name()
+        if name not in self.sections:
+            return
+        box, builder, built = self.sections[name]
+        if not built:
+            self.sections[name] = (box, builder, True)
+            builder(box)
+            box.show_all()
+
+    def add(self, widget):
+        return super().add(widget)
+
+    def note(self, text):
+        self.message.set_text(text)
+
+    def action(self, command):
+        return lambda: self.app.safe(lambda: run(command))
+
+    def status(self, box, work):
+        text = label('Consultando…', 'status-card')
+        box.pack_start(text, False, False, 0)
+        async_update(work, text.set_text)
+        box.pack_start(button('Atualizar estado', lambda: async_update(work, text.set_text), 'view-refresh-symbolic'), False, False, 0)
+
+    def network(self, box):
+        def state():
+            wifi=query(['nmcli','radio','wifi'])
+            active=query(['nmcli','-t','--escape','no','-f','NAME,TYPE,DEVICE','connection','show','--active'])
+            connections=[]
+            for line in active.splitlines():
+                parts=line.rsplit(':',2)
+                if len(parts)==3 and parts[1] in {'wifi','802-11-wireless','ethernet','802-3-ethernet','vpn','wireguard'}:
+                    connections.append(f'{parts[0]} · {parts[2]}')
+            return 'Wi-Fi: '+{'enabled':'ativado','disabled':'desativado'}.get(wifi,wifi)+'\n\n'+('\n'.join(connections) or 'Nenhuma conexão de rede ativa')
+        self.status(box,state)
+        box.pack_start(button('Gerenciar conexões', self.action([str(ROOT/'scripts/gtk3-app'),'nm-connection-editor']), 'network-workgroup-symbolic'), False, False, 0)
+        box.pack_start(label('Conexões gerenciadas pelo NetworkManager. As alterações são feitas no editor oficial.', 'muted'), False, False, 0)
+
+    def bluetooth(self, box):
+        def state():
+            adapter = query(['bluetoothctl','show'])
+            lines = [s.strip() for s in adapter.splitlines() if any(key in s for key in ['Name:', 'Powered:', 'Discoverable:'])]
+            return ('\n'.join(lines) or adapter) + '\n\nDispositivos pareados\n' + query(['bluetoothctl','devices','Paired'])
+        self.status(box, state)
+        box.pack_start(button('Abrir dispositivos no Blueman', self.action([str(ROOT/'scripts/gtk3-app'),'blueman-manager']), 'bluetooth-symbolic'), False, False, 0)
+
+    def audio(self, box):
+        box.pack_start(label('Volume de saída', 'section-title'), False, False, 0)
+        slider = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        slider.set_value(0)
+        slider.set_digits(0)
+        box.pack_start(slider, False, False, 0)
+        def changed(widget):
+            self.app.safe(lambda: subprocess.run(['wpctl','set-volume','@DEFAULT_AUDIO_SINK@',f'{int(widget.get_value())}%'],check=True,timeout=2))
+        def set_volume(value):
+            try:
+                slider.set_value(float(value.split()[1])*100)
+            except (ValueError,IndexError):
+                self.note('Volume indisponível; use as configurações avançadas.')
+            slider.connect('value-changed', changed)
+        async_update(lambda: query(['wpctl','get-volume','@DEFAULT_AUDIO_SINK@']), set_volume)
+        box.pack_start(button('Silenciar / ativar saída', self.action(['wpctl','set-mute','@DEFAULT_AUDIO_SINK@','toggle']), 'audio-volume-muted-symbolic'), False, False, 0)
+        for kind, title in [('sinks','Dispositivo de saída'), ('sources','Dispositivo de entrada')]:
+            box.pack_start(label(title), False, False, 0)
+            combo = Gtk.ComboBoxText()
+            box.pack_start(combo, False, False, 0)
+            def populate(data, widget=combo, target=kind):
+                try:
+                    entries = json.loads(data)
+                    for item in entries:
+                        widget.append(item['name'], item.get('description', item['name']))
+                    active = query(['pactl','get-default-' + ('sink' if target == 'sinks' else 'source')])
+                    widget.set_active_id(active)
+                    widget.connect('changed', lambda c: self.app.safe(lambda: subprocess.run(['pactl','set-default-' + ('sink' if target == 'sinks' else 'source'),c.get_active_id()],check=True,timeout=2)) if c.get_active_id() else None)
+                except (ValueError,TypeError):
+                    self.note('Seleção de dispositivos indisponível; pavucontrol continua acessível.')
+            async_update(lambda k=kind: query(['pactl','--format=json','list',k]), populate)
+        box.pack_start(button('Configurações avançadas de áudio', self.action(['pavucontrol']), 'preferences-system-symbolic'), False, False, 0)
+
+    def monitors(self, box):
+        box.pack_start(label('Ajustes temporários pela interface nativa do Niri. O GNOME Settings não é usado para controlar estes monitores.', 'muted'), False, False, 0)
+        listing = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.pack_start(listing, False, False, 0)
+        def populate(text):
+            try:
+                outputs = json.loads(text)
+                for name, output in outputs.items():
+                    if output.get('current_mode') is None:
+                        continue
+                    mode = output['modes'][output['current_mode']]
+                    scale = output['logical']['scale']
+                    listing.pack_start(label(f'{name} · {mode["width"]} × {mode["height"]} · {mode["refresh_rate"]/1000:.1f} Hz · escala {scale:g}', 'status-card'),False,False,0)
+                    row = Gtk.Box(spacing=8)
+                    combo = Gtk.ComboBoxText()
+                    for value in [1,1.25,1.5,1.75,2]:
+                        combo.append(str(value), f'{value:g}×')
+                    combo.set_active_id(str(int(scale)) if scale == int(scale) else str(scale))
+                    row.pack_start(combo,True,True,0)
+                    row.pack_start(button('Testar escala',lambda n=name,c=combo,s=scale:self.test_scale(n,c.get_active_id(),s)),False,False,0)
+                    listing.pack_start(row,False,False,0)
+                listing.show_all()
+            except (ValueError,TypeError,KeyError):
+                self.note('Não foi possível consultar os monitores do Niri.')
+        async_update(lambda:query(['niri','msg','-j','outputs']),populate)
+        box.pack_start(button('Abrir configuração persistente do Niri', self.action(['xdg-open',str(ROOT/'config.kdl')]), 'document-edit-symbolic'),False,False,0)
+
+    def test_scale(self, output, scale, old):
+        if not scale:
+            return
+        def apply():
+            subprocess.run(['niri','msg','output',output,'scale',scale],check=True,timeout=3)
+            dialog=Gtk.MessageDialog(transient_for=self,modal=True,message_type=Gtk.MessageType.QUESTION,buttons=Gtk.ButtonsType.YES_NO,text='Manter esta escala nesta sessão?')
+            dialog.format_secondary_text('A escala anterior será restaurada automaticamente em 15 segundos. Para persistir, edite a configuração do Niri.')
+            timer=GLib.timeout_add_seconds(15,lambda:(dialog.response(Gtk.ResponseType.NO),False)[1])
+            response=dialog.run()
+            if GLib.MainContext.default().find_source_by_id(timer): GLib.source_remove(timer)
+            dialog.destroy()
+            if response != Gtk.ResponseType.YES:
+                subprocess.run(['niri','msg','output',output,'scale',str(old)],check=True,timeout=3)
+        self.app.safe(apply)
+
+    def look(self, box):
+        prefs=appearance()
+        box.pack_start(label('A central permanece escura. Estas preferências afetam a Waybar, a dock e os utilitários GTK3 abertos pelo rice; o GNOME mantém suas preferências.', 'muted'),False,False,0)
+        style=Gtk.ComboBoxText()
+        style.append('dark','Catppuccin Mocha · escuro')
+        style.append('light','Catppuccin Latte · claro')
+        style.set_active_id(prefs['style'])
+        box.pack_start(style,False,False,0)
+        box.pack_start(label('Opacidade da barra e dock', 'section-title'),False,False,0)
+        opacity=Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL,85,100,1)
+        opacity.set_digits(0)
+        opacity.set_value(float(prefs['opacity'])*100)
+        box.pack_start(opacity,False,False,0)
+        def save():
+            write_json(STATE/'appearance.json',{'style':style.get_active_id(),'opacity':opacity.get_value()/100})
+            reload_bar()
+            self.note('Aparência salva. Aplicativos GTK3 usam o tema na próxima abertura.')
+        box.pack_start(button('Aplicar aparência',lambda:self.app.safe(save),'emblem-ok-symbolic'),False,False,0)
+        box.pack_start(button('Escolher wallpaper',self.action([str(ROOT/'scripts/wallpaper-manager'),'choose']),'preferences-desktop-wallpaper-symbolic'),False,False,0)
+        box.pack_start(button('Restaurar wallpaper original',self.action([str(ROOT/'scripts/wallpaper-manager'),'restore'])),False,False,0)
+        box.pack_start(button('Mostrar / ocultar dock',self.action([str(ROOT/'scripts/dock-mode'),'toggle'])),False,False,0)
+
+    def energy(self, box):
+        def battery():
+            result=[]
+            for directory in Path('/sys/class/power_supply').glob('*'):
+                if (directory/'capacity').exists():
+                    result.append(f'{directory.name}: {(directory/"capacity").read_text().strip()}% · {(directory/"status").read_text().strip()}')
+            return '\n'.join(result) or 'Bateria não detectada'
+        self.status(box,battery)
+        profiles=Gtk.ComboBoxText()
+        box.pack_start(label('Perfil energético', 'section-title'),False,False,0)
+        box.pack_start(profiles,False,False,0)
+        def power_proxy():
+            for bus,path in [('org.freedesktop.UPower.PowerProfiles','/org/freedesktop/UPower/PowerProfiles'),('net.hadess.PowerProfiles','/net/hadess/PowerProfiles')]:
+                try:
+                    proxy=Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SYSTEM,Gio.DBusProxyFlags.DO_NOT_AUTO_START,None,bus,path,bus,None)
+                    if proxy.get_cached_property('ActiveProfile') is not None:return proxy
+                except GLib.Error:pass
+            return None
+        def set_profiles(proxy):
+            if not isinstance(proxy,Gio.DBusProxy):
+                profiles.set_sensitive(False)
+                self.note('Serviço de perfis energéticos indisponível; nenhum serviço foi substituído.')
+                return
+            values=proxy.get_cached_property('Profiles').unpack()
+            for item in values:
+                name=item['Profile']
+                profiles.append(name,{'balanced':'Equilibrado','power-saver':'Economia','performance':'Desempenho'}.get(name,name))
+            profiles.set_active_id(proxy.get_cached_property('ActiveProfile').unpack())
+            def change(widget):
+                value=widget.get_active_id()
+                if value:self.app.safe(lambda:proxy.call_sync('org.freedesktop.DBus.Properties.Set',GLib.Variant('(ssv)',(proxy.get_interface_name(),'ActiveProfile',GLib.Variant('s',value))),Gio.DBusCallFlags.NONE,3000,None))
+            profiles.connect('changed',change)
+        async_update(power_proxy,set_profiles)
+        box.pack_start(button('Bloquear tela',self.action([str(ROOT/'scripts/lock')]),'system-lock-screen-symbolic'),False,False,0)
+        def suspend():
+            dialog=Gtk.MessageDialog(transient_for=self,modal=True,message_type=Gtk.MessageType.QUESTION,buttons=Gtk.ButtonsType.YES_NO,text='Suspender o computador agora?')
+            response=dialog.run();dialog.destroy()
+            if response==Gtk.ResponseType.YES:run(['systemctl','suspend'])
+        box.pack_start(button('Suspender…',suspend,'media-playback-pause-symbolic'),False,False,0)
+
+    def system(self, box):
+        cpu=next((line.split(':',1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines() if line.startswith('model name')),'')
+        memory=int(next(line.split()[1] for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith('MemTotal:')))/1024/1024
+        box.pack_start(label(f'{cpu}\n{memory:.1f} GiB RAM\n{query(["uname","-r"])}\nNiri + Wayland', 'status-card'),False,False,0)
+        for title,command,icon in [('Configurações compatíveis do GNOME',[str(ROOT/'scripts/settings-window')],'preferences-system-symbolic'),('Monitor de recursos',['gnome-system-monitor'],'utilities-system-monitor-symbolic'),('Discos e armazenamento',['gnome-disks'],'drive-harddisk-symbolic')]:
+            box.pack_start(button(title,self.action(command),icon),False,False,0)
+        box.pack_start(label('Multitarefa, fundo, busca do Overview e notificações do GNOME não configuram o Niri. Use as páginas desta central para o rice.', 'muted'),False,False,0)
+
+    def favorites_page(self, box):
+        box.pack_start(label('Clique com o botão direito em um favorito da dock para chegar aqui. A ordem é salva automaticamente.', 'muted'),False,False,0)
+        columns=Gtk.Box(spacing=18)
+        box.pack_start(columns,True,True,0)
+        left=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
+        right=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
+        columns.pack_start(left,True,True,0);columns.pack_start(right,True,True,0)
+        left.pack_start(label('Na sua dock', 'section-title'),False,False,0)
+        self.favorite_rows=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=6)
+        left.pack_start(self.favorite_rows,False,False,0)
+        self.render_favorites()
+        search=Gtk.SearchEntry(placeholder_text='Pesquisar aplicativos…')
+        right.pack_start(search,False,False,0)
+        apps=Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        scroll=Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER,Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(390)
+        scroll.add(apps)
+        right.pack_start(scroll,True,True,0)
+        all_apps=sorted([app for app in Gio.AppInfo.get_all() if app.should_show() and app.get_id() and desktop(app.get_id())],key=lambda a:a.get_display_name().casefold())
+        seen=set()
+        for app in all_apps:
+            identity=app.get_id()
+            if identity in seen:continue
+            seen.add(identity)
+            row=Gtk.ListBoxRow()
+            row.search_text=(app.get_display_name()+' '+identity).casefold()
+            content=Gtk.Box(spacing=8)
+            content.pack_start(app_image(app,24),False,False,0)
+            text=label(app.get_display_name());text.set_max_width_chars(22);text.set_ellipsize(3)
+            content.pack_start(text,True,True,0)
+            content.pack_start(button('+',lambda i=identity:self.change_favorites('add',i)),False,False,0)
+            row.add(content);apps.add(row)
+        apps.set_filter_func(lambda row:search.get_text().casefold() in row.search_text)
+        search.connect('search-changed',lambda *_:apps.invalidate_filter())
+
+    def change_favorites(self, operation, identity):
+        def change():
+            items=favorites()
+            if operation=='add' and identity not in items:items.append(identity)
+            if operation=='remove' and identity in items:items.remove(identity)
+            if operation in ('up','down') and identity in items:
+                index=items.index(identity);new=index+(-1 if operation=='up' else 1)
+                if 0<=new<len(items):items[index],items[new]=items[new],items[index]
+            save_favorites(items)
+            self.render_favorites()
+            reload_bar()
+            self.note('Favoritos salvos e dock atualizada.')
+        self.app.safe(change)
+
+    def render_favorites(self):
+        for child in self.favorite_rows.get_children():self.favorite_rows.remove(child)
+        for identity in favorites():
+            app=desktop(identity)
+            row=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=4)
+            row.get_style_context().add_class('favorite-card')
+            head=Gtk.Box(spacing=6)
+            if app:head.pack_start(app_image(app,24),False,False,0)
+            text=label(app.get_display_name() if app else identity);text.set_max_width_chars(20);text.set_ellipsize(3)
+            head.pack_start(text,True,True,0)
+            for title,operation in [('↑','up'),('↓','down'),('×','remove')]:
+                head.pack_start(button(title,lambda op=operation,i=identity:self.change_favorites(op,i)),False,False,0)
+            row.pack_start(head,False,False,0)
+            actions=Gtk.Box(spacing=4)
+            if app:
+                actions.pack_start(button('Abrir',lambda i=identity:self.app.safe(lambda:open_or_focus(i))),False,False,0)
+                new_action=next((a for a in app.list_actions() if a in ['new-window','new-empty-window','New']),None)
+                if new_action:actions.pack_start(button('Nova janela',lambda i=identity,a=new_action:self.app.safe(lambda:start_desktop(i,a))),False,False,0)
+            row.pack_start(actions,False,False,0)
+            if identity==self.selected:row.get_style_context().add_class('selected-favorite')
+            self.favorite_rows.pack_start(row,False,False,0)
+        self.favorite_rows.show_all()
+
+
+class Rice(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id='org.niri.Rice',flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        self.settings=None
+        self.calendar=None
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        settings=Gtk.Settings.get_default()
+        settings.set_property('gtk-application-prefer-dark-theme',True)
+        settings.set_property('gtk-theme-name','Adwaita')
+        provider=Gtk.CssProvider()
+        provider.load_from_path(str(ROOT/'rice-ui.css'))
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(),provider,Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    def safe(self, callback):
+        try:callback()
+        except Exception as error:
+            print(f'rice-ui: {error}',file=sys.stderr,flush=True)
+            if self.settings:self.settings.note(str(error))
+
+    def do_command_line(self, command):
+        args=command.get_arguments()[1:]
+        action=args[0] if args else 'settings'
+        if action=='close':
+            for window in list(self.get_windows()):window.destroy()
+        elif action=='calendar':
+            if self.calendar:self.calendar.destroy()
+            else:
+                self.calendar=CalendarWindow(self)
+                self.calendar.connect('destroy',lambda *_:setattr(self,'calendar',None))
+                self.calendar.show_all()
+                self.calendar.present()
+        elif action in ('settings','favorites'):
+            if not self.settings:
+                self.settings=SettingsWindow(self,'Favoritos' if action=='favorites' else 'Rede',args[1] if len(args)>1 else None)
+                self.settings.connect('destroy',lambda *_:setattr(self,'settings',None))
+            elif action=='favorites':
+                self.settings.selected=args[1] if len(args)>1 else None
+                self.settings.stack.set_visible_child_name('Favoritos')
+                self.settings.render_favorites()
+            self.settings.show_all();self.settings.present()
+        else:
+            command.printerr_literal('Use settings, favorites, calendar ou close\n')
+            return 1
+        return 0
+
+
+if __name__=='__main__':
+    raise SystemExit(Rice().run(sys.argv))
