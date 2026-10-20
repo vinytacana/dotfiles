@@ -1,30 +1,26 @@
-* { font-family: "UbuntuMono Nerd Font", monospace; font-size: 13px; min-height: 0; }
+* { font-family: "UbuntuMono Nerd Font", "Noto Sans", sans-serif; font-size: 14px; min-height: 0; }
 window#waybar { background: rgba(30, 30, 46, 0.94); color: #cdd6f4; border-radius: 12px; }
-window#waybar.dock { background: rgba(24, 24, 37, 0.94); border: 1px solid #45475a; border-radius: 18px; }
-window#waybar.dock #custom-dock-terminal,
-window#waybar.dock #custom-dock-browser,
-window#waybar.dock #custom-dock-code,
-window#waybar.dock #custom-dock-files,
-window#waybar.dock #custom-dock-settings { font-size: 25px; min-width: 54px; padding: 3px 5px; margin: 3px 1px; border-radius: 12px; border-bottom: 3px solid transparent; }
-window#waybar.dock .running { color: #cba6f7; border-bottom-color: #cba6f7; }
-window#waybar.dock .stopped { color: #a6adc8; }
-window#waybar.dock .focused { background: #313244; }
-window#waybar.dock #custom-dock-terminal:hover,
-window#waybar.dock #custom-dock-browser:hover,
-window#waybar.dock #custom-dock-code:hover,
-window#waybar.dock #custom-dock-files:hover,
-window#waybar.dock #custom-dock-settings:hover { background: #45475a; }
-#workspaces button { padding: 2px 10px; color: #a6adc8; background: transparent; border: none; border-radius: 8px; }
+window#waybar.top { border: 1px solid #313244; }
+#workspaces button { padding: 0 10px; margin: 3px 2px; color: #a6adc8; background: transparent; border: none; border-radius: 8px; box-shadow: none; text-shadow: none; }
 #workspaces button.active { color: #1e1e2e; background: #cba6f7; }
 #workspaces button.urgent { background: #f38ba8; color: #1e1e2e; }
 #workspaces button:hover { background: #45475a; color: #cdd6f4; }
-#window { margin-left: 8px; color: #bac2de; }
-#clock { color: #cba6f7; font-weight: bold; }
-#cpu, #memory, #network, #pulseaudio, #bluetooth, #battery, #custom-notifications, #custom-settings, #custom-wallpaper, #tray { padding: 0 6px; }
-#custom-settings, #custom-wallpaper { color: #cba6f7; }
-#memory { color: #89b4fa; }
+#window { margin-left: 10px; color: #bac2de; }
+#clock { color: #cba6f7; font-weight: bold; padding: 0 14px; margin: 3px 0; border-radius: 8px; }
+#cpu, #memory, #network, #pulseaudio, #bluetooth, #battery, #custom-notifications, #custom-settings, #tray { padding: 0 8px; margin: 3px 0; border-radius: 8px; }
+#clock:hover, #network:hover, #pulseaudio:hover, #bluetooth:hover, #custom-notifications:hover, #custom-settings:hover { background-color: #313244; }
+#custom-settings, #bluetooth { font-size: 18px; color: #cba6f7; }
+#memory { color: #bac2de; margin-right: 6px; }
+#battery { margin-left: 6px; }
 #battery.charging { color: #a6e3a1; }
 #battery.warning { color: #f9e2af; }
 #battery.critical, #custom-notifications.paused { color: #f38ba8; }
-tooltip { background: #1e1e2e; border: 1px solid #cba6f7; border-radius: 8px; }
-tooltip label { color: #cdd6f4; }
+window#waybar.dock { background: rgba(24, 24, 37, 0.94); border: 1px solid #45475a; border-radius: 18px; }
+window#waybar.dock .module { min-width: 42px; min-height: 40px; padding: 3px 3px; margin: 3px 3px; border-radius: 11px; border-bottom: 2px solid transparent; background-size: 30px 30px; background-position: center; background-repeat: no-repeat; transition: background-color 120ms ease-in-out; }
+window#waybar.dock .module:hover { background-color: #313244; }
+window#waybar.dock .running { border-bottom-color: #cba6f7; }
+window#waybar.dock .focused { background-color: #45475a; }
+window#waybar.dock .unavailable { color: #f38ba8; }
+#custom-dock-edit { font-size: 25px; color: #cba6f7; }
+tooltip { background: #1e1e2e; border: 1px solid #585b70; border-radius: 8px; }
+tooltip label { color: #cdd6f4; padding: 6px 8px; }
