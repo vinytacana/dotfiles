@@ -1,0 +1,31 @@
+window, dialog { background: #1e1e2e; color: #cdd6f4; font-family: Sans; font-size: 14px; }
+headerbar { background: #181825; color: #cdd6f4; border-bottom: 1px solid #313244; box-shadow: none; }
+headerbar .title { color: #cba6f7; }
+headerbar .subtitle { color: #a6adc8; }
+#calendar-panel { border: 1px solid #585b70; border-radius: 16px; }
+.page-title { font-size: 24px; font-weight: bold; color: #cba6f7; margin-bottom: 8px; }
+.section-title { font-size: 17px; font-weight: bold; color: #cba6f7; }
+.muted { color: #a6adc8; font-size: 13px; }
+.status-card { background: #313244; padding: 16px; border-radius: 12px; }
+button { background: #313244; background-image: none; border: 1px solid #45475a; border-radius: 8px; color: #cdd6f4; padding: 8px 12px; box-shadow: none; text-shadow: none; }
+button:hover { background: #45475a; border-color: #cba6f7; }
+button:focus { border-color: #cba6f7; }
+button:disabled { color: #6c7086; }
+entry, combobox button { background: #181825; color: #cdd6f4; border: 1px solid #45475a; border-radius: 8px; padding: 8px; }
+list, stacksidebar, viewport { background: transparent; color: #cdd6f4; }
+stacksidebar row { padding: 12px; border-radius: 8px; margin: 2px; }
+stacksidebar row:selected { background: #45475a; color: #cba6f7; }
+row:hover { background: #313244; }
+row:selected { background: #45475a; }
+.favorite-card { background: #181825; border: 1px solid #313244; border-radius: 10px; padding: 8px; }
+.selected-favorite { border-color: #cba6f7; }
+.favorite-card button { padding: 5px 8px; }
+.day { border-radius: 8px; }
+.today { background: #cba6f7; color: #1e1e2e; font-weight: bold; }
+scale trough { background: #45475a; min-height: 6px; border-radius: 6px; }
+scale highlight { background: #cba6f7; }
+scale slider { background: #cba6f7; border: none; min-width: 16px; min-height: 16px; }
+scrollbar trough { background: #181825; }
+scrollbar slider { background: #585b70; border-radius: 8px; }
+tooltip { background: #181825; color: #cdd6f4; border: 1px solid #585b70; }
+button image { margin-right: 6px; }
