@@ -87,6 +87,19 @@ layer-rule {
     match namespace="^launcher$"
     background-effect { xray true; blur true; }
 }
+// Rice V3: the on-demand settings window uses its own dark GTK stylesheet.
+window-rule {
+    match app-id="^org[.]niri[.]Rice$"
+    open-floating true
+    open-maximized false
+    default-column-width { fixed 960; }
+    default-window-height { fixed 700; }
+}
+layer-rule {
+    match namespace="^niri-calendar$"
+    geometry-corner-radius 16
+    shadow { on; softness 20; spread 0; offset x=0 y=4; color "#00000055"; }
+}
 workspace "1"
 workspace "2"
 workspace "3"
