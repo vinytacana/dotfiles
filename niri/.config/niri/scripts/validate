@@ -24,15 +24,19 @@ try:
     from gi.repository import Gtk
     css=Gtk.CssProvider(); css.load_from_path(str(root/'waybar.css'))
     print('Waybar GTK3 CSS: OK')
+    css.load_from_path(str(root/'rice-ui.css')); print('Rice UI GTK3 CSS: OK')
+    gi.require_version('GtkLayerShell','0.1')
+    from gi.repository import GtkLayerShell
+    print('GTK layer-shell: OK')
 except Exception as exc:
     failures.append('CSS'); print(exc)
 for f in [home/'.config/alacritty/alacritty.toml',home/'.config/alacritty/niri.toml']:
     tomllib.loads(f.read_text())
 print('Alacritty TOML: OK')
 run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
-for name in ['lock','idle','mako-session']: run(name,['sh','-n',str(root/'scripts'/name)])
+for name in ['lock','idle','mako-session','settings-hub']: run(name,['sh','-n',str(root/'scripts'/name)])
 for name in ['wallpaper-session']: run(name,['sh','-n',str(root/'scripts'/name)])
-for name in ['dock-app','dock-mode','settings-hub','settings-window','wallpaper-manager','waybar-session']:
+for name in ['dock-app','dock-mode','rice-ui','rice_common.py','gtk3-app','settings-window','wallpaper-manager','waybar-session']:
     try:
         compile((root/'scripts'/name).read_text(),str(root/'scripts'/name),'exec')
         print(f'{name}: OK')
