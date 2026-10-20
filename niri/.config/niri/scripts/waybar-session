@@ -1,15 +1,49 @@
 #!/usr/bin/python3
-"""One Waybar process for the top bar and optional dock."""
+"""Generate both bars and favorite icon CSS; exec exactly one Waybar process."""
+import sys
+sys.dont_write_bytecode = True
 import json
 import os
 from pathlib import Path
+import shlex
+from rice_common import ROOT, STATE, favorites, desktop, icon_file, appearance
 
-home = Path.home()
-config = home / ".config/niri/waybar.jsonc"
-state = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "niri-rice/dock-disabled"
-runtime = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "niri-rice-waybar.json"
-bars = json.loads(config.read_text())
-if state.exists():
-    bars = [bar for bar in bars if bar.get("name") != "dock"]
-runtime.write_text(json.dumps(bars))
-os.execv("/usr/bin/waybar", ["waybar", "-c", str(runtime), "-s", str(home / ".config/niri/waybar.css")])
+os.environ['LC_TIME'] = 'pt_BR.UTF-8'
+os.environ['LANGUAGE'] = 'pt_BR'
+runtime = Path(os.environ['XDG_RUNTIME_DIR']) / 'niri-rice'
+runtime.mkdir(mode=0o700, exist_ok=True)
+bars = json.loads((ROOT / 'waybar.jsonc').read_text())
+css = (ROOT / 'waybar.css').read_text()
+items = favorites()
+dock = next(bar for bar in bars if bar['name'] == 'dock')
+dock['modules-center'] = []
+for number, identity in enumerate(items):
+    app = desktop(identity)
+    if app is None:
+        continue
+    name = f'custom/favorite-{number}'
+    action = shlex.quote(str(ROOT / 'scripts/dock-app')) + ' ' + shlex.quote(identity)
+    dock['modules-center'].append(name)
+    dock[name] = {'exec': action + ' status', 'return-type': 'json', 'interval': 5,
+                  'on-click': action + ' open', 'on-click-right':
+                  shlex.quote(str(ROOT / 'scripts/settings-hub')) + ' favorites ' + shlex.quote(identity)}
+    icon = icon_file(app)
+    if icon:
+        css += f'\n#custom-favorite-{number} {{ background-image: url({json.dumps(Path(icon).as_uri())}); }}\n'
+dock['modules-center'].append('custom/dock-edit')
+dock['custom/dock-edit'] = {'format': '＋', 'tooltip-format': 'Gerenciar favoritos',
+                           'on-click': str(ROOT / 'scripts/settings-hub') + ' favorites'}
+dock['width'] = 54 * (len(dock['modules-center'])) + 24
+prefs = appearance()
+opacity = min(1.0, max(0.85, float(prefs['opacity'])))
+if prefs['style'] == 'light':
+    for old, new in {'#cdd6f4':'#4c4f69', '#bac2de':'#5c5f77', '#a6adc8':'#6c6f85', '#cba6f7':'#8839ef',
+                     '#313244':'#ccd0da', '#45475a':'#bcc0cc', '#1e1e2e':'#eff1f5',
+                     '30, 30, 46':'239, 241, 245', '24, 24, 37':'230, 233, 239'}.items():
+        css = css.replace(old, new)
+css = css.replace('0.94)', f'{opacity:.2f})')
+if (STATE / 'dock-disabled').exists():
+    bars = [bar for bar in bars if bar.get('name') != 'dock']
+(runtime / 'waybar.json').write_text(json.dumps(bars))
+(runtime / 'waybar.css').write_text(css)
+os.execv('/usr/bin/waybar', ['waybar', '-c', str(runtime / 'waybar.json'), '-s', str(runtime / 'waybar.css')])
