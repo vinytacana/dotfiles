@@ -4,6 +4,6 @@ PartOf=niri-rice.target graphical-session.target
 After=graphical-session.target
 ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
 [Service]
-ExecStart=/usr/bin/waybar -c %h/.config/niri/waybar.jsonc -s %h/.config/niri/waybar.css
+ExecStart=%h/.config/niri/scripts/waybar-session
 Restart=on-failure
 RestartSec=3

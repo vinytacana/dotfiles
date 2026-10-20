@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+"""Toggle the dock while preserving the top bar and a single Waybar service."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+if len(sys.argv) != 2 or sys.argv[1] not in {"on", "off", "toggle", "status"}:
+    sys.exit("Uso: dock-mode {on|off|toggle|status}")
+home = Path.home()
+flag = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "niri-rice/dock-disabled"
+disabled = flag.exists()
+if sys.argv[1] == "status":
+    print("off" if disabled else "on")
+    sys.exit()
+enable = sys.argv[1] == "on" or (sys.argv[1] == "toggle" and disabled)
+flag.parent.mkdir(parents=True, exist_ok=True)
+if enable:
+    flag.unlink(missing_ok=True)
+else:
+    flag.touch()
+subprocess.run(["systemctl", "--user", "restart", "niri-rice-bar.service"], check=True)
+print("on" if enable else "off")

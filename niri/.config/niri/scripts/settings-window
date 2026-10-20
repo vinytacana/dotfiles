@@ -1,0 +1,36 @@
+#!/usr/bin/python3
+"""Open GNOME Settings in Niri, correcting its late maximize request."""
+import json
+import os
+import subprocess
+import sys
+import time
+
+def windows():
+    try:
+        return json.loads(subprocess.check_output(["niri", "msg", "-j", "windows"], timeout=2, stderr=subprocess.DEVNULL))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return []
+
+existing = {window["id"] for window in windows()}
+environment = os.environ.copy()
+environment["XDG_CURRENT_DESKTOP"] = "GNOME"
+subprocess.Popen(["gnome-control-center", *sys.argv[1:]], env=environment,
+                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+deadline = time.monotonic() + 5
+target = None
+while time.monotonic() < deadline:
+    candidates = [window for window in windows() if window.get("app_id") == "org.gnome.Settings"]
+    fresh = [window for window in candidates if window["id"] not in existing]
+    if fresh or candidates:
+        target = (fresh or candidates)[-1]
+        break
+    time.sleep(0.1)
+if target:
+    # Settings asks to maximize after map, overriding its native open-floating rule.
+    time.sleep(0.6)
+    current = next((window for window in windows() if window["id"] == target["id"]), None)
+    if current and not current.get("is_floating"):
+        subprocess.run(["niri", "msg", "action", "toggle-window-floating", "--id", str(target["id"])], check=False)
+        subprocess.run(["niri", "msg", "action", "set-window-width", "--id", str(target["id"]), "850"], check=False)
+        subprocess.run(["niri", "msg", "action", "set-window-height", "--id", str(target["id"]), "650"], check=False)

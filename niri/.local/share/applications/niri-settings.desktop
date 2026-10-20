@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Configurações do Niri
+Comment=Acesso a áudio, rede, Bluetooth, GNOME e wallpaper
+Exec=/home/viny/.config/niri/scripts/settings-hub
+Icon=preferences-system
+Categories=Settings;DesktopSettings;
+NotShowIn=GNOME;
+Terminal=false

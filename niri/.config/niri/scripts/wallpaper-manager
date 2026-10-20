@@ -1,0 +1,52 @@
+#!/usr/bin/python3
+"""Select and persist a 1920x1080 Niri wallpaper without changing GNOME."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+home = Path.home()
+state = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "niri-rice"
+original = home / ".config/niri/wallpaper.png"
+selected = state / "wallpaper.png"
+choice = state / "wallpaper-choice"
+
+def current():
+    return selected if selected.exists() and choice.exists() and choice.read_text().strip() == "selected" else original
+
+def activate(value):
+    state.mkdir(parents=True, exist_ok=True)
+    temp = state / "wallpaper-choice.tmp"
+    temp.write_text(value + "\n")
+    temp.replace(choice)
+    subprocess.run(["systemctl", "--user", "restart", "niri-rice-wallpaper.service"], check=True)
+
+if len(sys.argv) < 2 or sys.argv[1] not in {"current", "choose", "set", "restore"}:
+    sys.exit("Uso: wallpaper-manager {choose|set IMAGEM|restore|current}")
+action = sys.argv[1]
+if action == "current":
+    print(current())
+elif action == "restore":
+    activate("original")
+    print(original)
+else:
+    if action == "choose":
+        result = subprocess.run(["zenity", "--file-selection", "--title=Wallpaper do Niri", "--file-filter=Imagens | *.png *.PNG *.jpg *.JPG *.jpeg *.JPEG *.webp *.WEBP"], capture_output=True, text=True)
+        if result.returncode:
+            sys.exit(0)
+        source = Path(result.stdout.strip())
+    elif len(sys.argv) == 3:
+        source = Path(sys.argv[2]).expanduser()
+    else:
+        sys.exit("Informe a imagem")
+    if source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"} or not source.is_file():
+        sys.exit("Selecione uma imagem PNG, JPEG ou WebP existente")
+    state.mkdir(parents=True, exist_ok=True)
+    temporary = state / "wallpaper.new.png"
+    try:
+        subprocess.run(["magick", str(source), "-auto-orient", "-resize", "1920x1080^", "-gravity", "center", "-extent", "1920x1080", str(temporary)], check=True)
+        temporary.replace(selected)
+    finally:
+        temporary.unlink(missing_ok=True)
+    activate("selected")
+    print(selected)

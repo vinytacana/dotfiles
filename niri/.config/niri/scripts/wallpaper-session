@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+image=$("$HOME/.config/niri/scripts/wallpaper-manager" current)
+exec /usr/bin/swaybg -i "$image" -m fill

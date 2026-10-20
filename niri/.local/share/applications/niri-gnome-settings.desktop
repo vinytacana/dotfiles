@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Configurações do GNOME no Niri
+Exec=/home/viny/.config/niri/scripts/settings-window
+Icon=org.gnome.Settings
+Categories=Settings;DesktopSettings;
+NotShowIn=GNOME;
+Terminal=false

@@ -19,7 +19,7 @@ output "eDP-1" {
     scale 1
 }
 layout {
-    gaps 8
+    gaps 10
     center-focused-column "on-overflow"
     preset-column-widths {
         proportion 0.33333
@@ -33,18 +33,59 @@ layout {
         inactive-color "#45475a"
     }
     border { off; }
+    shadow {
+        off
+        softness 22
+        spread 0
+        offset x=0 y=5
+        color "#00000055"
+    }
     background-color "#1e1e2e"
 }
 prefer-no-csd
-animations { slowdown 0.85; }
+animations {
+    slowdown 0.9
+    window-open { duration-ms 160; curve "ease-out-cubic"; }
+    window-close { duration-ms 140; curve "ease-out-quad"; }
+}
+blur { passes 2; offset 2; }
 window-rule {
-    geometry-corner-radius 8
+    geometry-corner-radius 10
     clip-to-geometry true
     draw-border-with-background false
 }
 window-rule {
-    match app-id="^(pavucontrol|org.pulseaudio.pavucontrol|blueman-manager|nm-connection-editor)$"
+    match is-floating=true
+    shadow { on; }
+}
+window-rule {
+    match app-id=r#"^(org\.gnome\.Calculator|org\.gnome\.Settings|org\.pulseaudio\.pavucontrol|blueman-manager|nm-connection-editor)$"#
     open-floating true
+    default-column-width { fixed 850; }
+    default-window-height { fixed 650; }
+    default-floating-position x=0 y=0 relative-to="top"
+}
+window-rule {
+    match app-id=r#"^org\.gnome\.Calculator$"#
+    default-column-width { fixed 400; }
+    default-window-height { fixed 550; }
+}
+window-rule {
+    match app-id=r#"^org\.gnome\.Settings$"#
+    open-maximized false
+}
+window-rule {
+    match app-id=r#"^(org\.pulseaudio\.pavucontrol|blueman-manager|nm-connection-editor)$"#
+    default-column-width { fixed 750; }
+    default-window-height { fixed 560; }
+}
+window-rule {
+    match app-id="^Alacritty$"
+    background-effect { xray true; blur true; }
+}
+layer-rule {
+    match namespace="^launcher$"
+    background-effect { xray true; blur true; }
 }
 workspace "1"
 workspace "2"
@@ -88,6 +129,9 @@ binds {
     Mod+C { center-column; }
     Mod+V { toggle-window-floating; }
     Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    Mod+Comma hotkey-overlay-title="Configurações" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub"; }
+    Mod+Shift+W hotkey-overlay-title="Escolher wallpaper" { spawn "sh" "-c" "exec ~/.config/niri/scripts/wallpaper-manager choose"; }
+    Mod+Shift+D hotkey-overlay-title="Mostrar ou ocultar dock" { spawn "sh" "-c" "exec ~/.config/niri/scripts/dock-mode toggle"; }
     Mod+O { toggle-overview; }
     Mod+Tab { focus-workspace-previous; }
     Mod+BracketLeft { consume-or-expel-window-left; }

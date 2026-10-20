@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+"""One Waybar process for the top bar and optional dock."""
+import json
+import os
+from pathlib import Path
+
+home = Path.home()
+config = home / ".config/niri/waybar.jsonc"
+state = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "niri-rice/dock-disabled"
+runtime = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "niri-rice-waybar.json"
+bars = json.loads(config.read_text())
+if state.exists():
+    bars = [bar for bar in bars if bar.get("name") != "dock"]
+runtime.write_text(json.dumps(bars))
+os.execv("/usr/bin/waybar", ["waybar", "-c", str(runtime), "-s", str(home / ".config/niri/waybar.css")])

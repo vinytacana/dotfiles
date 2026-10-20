@@ -1,4 +1,6 @@
+[
 {
+  "name": "top",
   "layer": "top",
   "position": "top",
   "height": 34,
@@ -21,6 +23,8 @@
     "bluetooth",
     "battery",
     "custom/notifications",
+    "custom/settings",
+    "custom/wallpaper",
     "tray"
   ],
   "niri/workspaces": {
@@ -82,8 +86,36 @@
     "on-click": "makoctl mode -t do-not-disturb",
     "on-click-right": "makoctl dismiss -a"
   },
+  "custom/settings": {
+    "format": "",
+    "tooltip-format": "Configurações do sistema",
+    "on-click": "~/.config/niri/scripts/settings-hub"
+  },
+  "custom/wallpaper": {
+    "format": "",
+    "tooltip-format": "Escolher wallpaper",
+    "on-click": "~/.config/niri/scripts/wallpaper-manager choose"
+  },
   "tray": {
     "spacing": 8,
     "icon-size": 16
   }
+},
+{
+  "name": "dock",
+  "layer": "top",
+  "position": "bottom",
+  "width": 430,
+  "height": 54,
+  "spacing": 8,
+  "margin-bottom": 12,
+  "exclusive": false,
+  "passthrough": false,
+  "modules-center": ["custom/dock-terminal", "custom/dock-browser", "custom/dock-code", "custom/dock-files", "custom/dock-settings"],
+  "custom/dock-terminal": { "exec": "~/.config/niri/scripts/dock-app terminal status", "return-type": "json", "interval": 5, "on-click": "~/.config/niri/scripts/dock-app terminal open" },
+  "custom/dock-browser": { "exec": "~/.config/niri/scripts/dock-app browser status", "return-type": "json", "interval": 5, "on-click": "~/.config/niri/scripts/dock-app browser open" },
+  "custom/dock-code": { "exec": "~/.config/niri/scripts/dock-app code status", "return-type": "json", "interval": 5, "on-click": "~/.config/niri/scripts/dock-app code open" },
+  "custom/dock-files": { "exec": "~/.config/niri/scripts/dock-app files status", "return-type": "json", "interval": 5, "on-click": "~/.config/niri/scripts/dock-app files open" },
+  "custom/dock-settings": { "exec": "~/.config/niri/scripts/dock-app settings status", "return-type": "json", "interval": 5, "on-click": "~/.config/niri/scripts/dock-app settings open", "on-click-right": "~/.config/niri/scripts/settings-hub" }
 }
+]

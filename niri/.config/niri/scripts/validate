@@ -14,7 +14,10 @@ for name in ['niri','waybar','fuzzel','mako','swaybg','swaylock','swayidle','xwa
     if not shutil.which(name): failures.append(name); print(f'AUSENTE: {name}')
 if shutil.which('niri'): run('Niri', ['niri','validate','--config',str(root/'config.kdl')])
 if shutil.which('fuzzel'): run('Fuzzel', ['fuzzel','--check-config','--config',str(root/'fuzzel.ini')])
-json.loads((root/'waybar.jsonc').read_text()); print('Waybar JSON: OK')
+bars=json.loads((root/'waybar.jsonc').read_text())
+if [bar.get('name') for bar in bars] != ['top','dock']:
+    failures.append('Waybar bars'); print('Waybar bars: FALHOU')
+else: print('Waybar JSON (top + dock): OK')
 try:
     import gi
     gi.require_version('Gtk','3.0')
@@ -28,6 +31,17 @@ for f in [home/'.config/alacritty/alacritty.toml',home/'.config/alacritty/niri.t
 print('Alacritty TOML: OK')
 run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
 for name in ['lock','idle','mako-session']: run(name,['sh','-n',str(root/'scripts'/name)])
+for name in ['wallpaper-session']: run(name,['sh','-n',str(root/'scripts'/name)])
+for name in ['dock-app','dock-mode','settings-hub','settings-window','wallpaper-manager','waybar-session']:
+    try:
+        compile((root/'scripts'/name).read_text(),str(root/'scripts'/name),'exec')
+        print(f'{name}: OK')
+    except SyntaxError as exc:
+        failures.append(name); print(exc)
+for name in ['gnome-control-center','zenity','magick','pavucontrol','nm-connection-editor','blueman-manager','gnome-tweaks']:
+    if not shutil.which(name): failures.append(name); print(f'AUSENTE: {name}')
+if shutil.which('desktop-file-validate'):
+    run('Launchers', ['desktop-file-validate',str(home/'.local/share/applications/niri-settings.desktop'),str(home/'.local/share/applications/niri-gnome-settings.desktop')])
 for p in [Path('/usr/share/wayland-sessions/niri.desktop'),Path('/usr/share/wayland-sessions/gnome.desktop'),Path('/usr/libexec/polkit-mate-authentication-agent-1')]:
     if not p.exists(): failures.append(str(p)); print(f'AUSENTE: {p}')
 print('Teste gráfico, autenticação do bloqueio, suspensão e portais: MANUAL na sessão Niri.')

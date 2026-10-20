@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+"""Waybar favorite: report Niri window state, or focus/open the app."""
+import json
+import os
+import subprocess
+import sys
+
+APPS = {
+    "terminal": ("Alacritty", "\uf120", {"Alacritty"}, ["alacritty", "--config-file", os.path.expanduser("~/.config/alacritty/niri.toml")]),
+    "browser": ("Firefox", "\ue61d", {"org.mozilla.firefox"}, ["firefox"]),
+    "code": ("VS Code", "\ue70c", {"com.microsoft.VSCode"}, ["code"]),
+    "files": ("Arquivos", "\uf07b", {"org.gnome.Nautilus"}, ["nautilus", "--new-window"]),
+    "settings": ("Configurações", "\uf013", {"org.gnome.Settings"}, [os.path.expanduser("~/.config/niri/scripts/settings-hub")]),
+}
+
+if len(sys.argv) != 3 or sys.argv[1] not in APPS or sys.argv[2] not in {"status", "open"}:
+    sys.exit("Uso: dock-app {terminal|browser|code|files|settings} {status|open}")
+name, icon, app_ids, command = APPS[sys.argv[1]]
+try:
+    windows = json.loads(subprocess.check_output(["niri", "msg", "-j", "windows"], timeout=2, stderr=subprocess.DEVNULL))
+except (OSError, subprocess.SubprocessError, ValueError):
+    windows = []
+matches = [window for window in windows if window.get("app_id") in app_ids]
+
+if sys.argv[2] == "status":
+    focused = any(window.get("is_focused") for window in matches)
+    state = "running" if matches else "stopped"
+    classes = [state] + (["focused"] if focused else [])
+    print(json.dumps({"text": icon, "tooltip": f"{name} · {len(matches)} janela(s)", "class": classes}, ensure_ascii=False))
+else:
+    if matches:
+        window = max(matches, key=lambda item: (item.get("focus_timestamp") or {}).get("secs", 0))
+        subprocess.run(["niri", "msg", "action", "focus-window", "--id", str(window["id"])], check=False)
+    else:
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
