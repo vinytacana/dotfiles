@@ -1,0 +1,13 @@
+@import url("file:///etc/xdg/swaync/style.css");
+:root { --cc-bg: rgba(30,30,46,0.96); --noti-bg: 24,24,37; --noti-bg-alpha: 0.96; --noti-bg-darker: #181825; --noti-bg-hover: #313244; --noti-bg-focus: #45475a; --text-color: #cdd6f4; --text-color-disabled: #a6adc8; --bg-selected: #cba6f7; }
+* { font-family: "Noto Sans", sans-serif; font-size: 14px; }
+.control-center { background: rgba(30,30,46,0.96); color: #cdd6f4; border: 1px solid #585b70; border-radius: 18px; padding: 12px; }
+.notification, .notification-group { background: #181825; color: #cdd6f4; border: 1px solid #45475a; border-radius: 12px; }
+.notification-content { background: transparent; color: #cdd6f4; padding: 10px; }
+.summary, .widget-title { color: #b4befe; }
+.body, .time { color: #cdd6f4; }
+.close-button, .notification-action, .widget-title > button { background: #313244; color: #cdd6f4; border-radius: 9px; }
+.close-button:hover, .notification-action:hover, .widget-title > button:hover { background: #45475a; color: #b4befe; }
+.widget-dnd { color: #cdd6f4; }
+.widget-dnd > switch:checked { background: #cba6f7; }
+.notification-group-headers { color: #b4befe; }
