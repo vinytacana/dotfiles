@@ -1,0 +1,15 @@
+[Unit]
+Description=Niri text clipboard capture (private runtime history)
+PartOf=niri-rice.target graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+ConditionPathExists=!%h/.local/state/niri-rice/clipboard-disabled
+[Service]
+ExecStartPre=%h/.config/niri/scripts/clipboard-control prepare
+ExecStart=/usr/bin/wl-paste --type text --watch %h/.config/niri/scripts/clipboard-store
+ExecStopPost=%h/.config/niri/scripts/clipboard-control clear
+Restart=on-failure
+RestartSec=3
+UMask=0077
+StandardOutput=null
+StandardError=null
