@@ -1,0 +1,13 @@
+[Unit]
+Description=On-demand bounded filename and project index
+PartOf=niri-rice.target graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+[Service]
+Type=oneshot
+ExecStart=%h/.config/niri/scripts/launcher-index
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=20
+IOWeight=20
+MemoryMax=192M
+TimeoutStartSec=90
