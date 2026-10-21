@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.erikreider.swaync.cc
+Exec=/usr/bin/systemctl --user start niri-rice-notifications.service
+SystemdService=niri-rice-notifications.service
