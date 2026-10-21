@@ -29,3 +29,15 @@ scrollbar trough { background: #181825; }
 scrollbar slider { background: #585b70; border-radius: 8px; }
 tooltip { background: #181825; color: #cdd6f4; border: 1px solid #585b70; }
 button image { margin-right: 6px; }
+#rice-overlay { background: transparent; }
+.popup-card { background: rgba(30,30,46,0.96); color: #cdd6f4; border: 1px solid #585b70; border-radius: 18px; padding: 18px; box-shadow: 0 5px 18px rgba(0,0,0,0.3); }
+.popup-card .page-title { font-size: 21px; }
+.popup-card button { border-radius: 10px; }
+.search-result { padding: 8px; border-radius: 10px; }
+.search-result:selected { background: #45475a; color: #b4befe; }
+.popup-card entry { background: #181825; color: #cdd6f4; font-size: 18px; padding: 8px; border-radius: 10px; }
+.control-center-card button { padding: 5px 8px; min-height: 22px; }
+.control-center-card .section-title { font-size: 15px; }
+.control-center-card scale { padding: 2px 0; margin: 1px 0; }
+.control-center-card .status-card { padding: 8px; }
+.control-section { background: rgba(24,24,37,0.9); border: 1px solid #313244; border-radius: 12px; padding: 9px; }
