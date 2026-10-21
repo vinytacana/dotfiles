@@ -1,0 +1,16 @@
+[Unit]
+Description=Niri rice notification server (SwayNC in Niri, original Mako fallback elsewhere)
+PartOf=graphical-session.target niri-rice.target
+After=graphical-session.target
+Conflicts=mako.service
+ConditionEnvironment=WAYLAND_DISPLAY
+[Service]
+Type=exec
+ExecStartPre=-/usr/bin/systemctl --user stop swaync.service
+ExecStart=%h/.config/niri/scripts/notification-server
+Environment=LANG=pt_BR.UTF-8 LANGUAGE=pt_BR
+Restart=on-failure
+RestartSec=3
+# Do not journal notification content, including third-party daemon debug output.
+StandardOutput=null
+StandardError=null
