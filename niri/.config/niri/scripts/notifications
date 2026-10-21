@@ -1,9 +1,26 @@
 #!/usr/bin/python3
-import json, subprocess
+"""Single backend adapter. Never starts a second notification server."""
+import json,subprocess,sys
+sys.dont_write_bytecode=True
+
+def call(args):
+    return subprocess.check_output(args,text=True,stderr=subprocess.DEVNULL,timeout=3).strip()
 try:
-    r = subprocess.run(['makoctl', 'mode'], capture_output=True, text=True, timeout=2, check=True)
-    paused = 'do-not-disturb' in r.stdout.splitlines()
-    print(json.dumps({'text': 'DND' if paused else 'N', 'class': 'paused' if paused else 'active',
-                      'tooltip': 'Não perturbe' if paused else 'Notificações ativas'}))
-except (OSError, subprocess.SubprocessError):
-    print(json.dumps({'text': 'N?', 'class': 'unavailable', 'tooltip': 'Mako indisponível'}))
+    active=subprocess.run(['systemctl','--user','is-active','--quiet','niri-rice-notifications.service']).returncode==0
+    action=sys.argv[1] if len(sys.argv)>1 else 'status'
+    if active:
+        options={'open':'--toggle-panel','dnd':'--toggle-dnd','clear':'--close-all','dismiss':'--hide-latest'}
+        if action in options:call(['swaync-client','--skip-wait',options[action]])
+        elif action!='status':raise ValueError('ação desconhecida')
+        paused=call(['swaync-client','--skip-wait','--get-dnd'])=='true'
+        count=int(call(['swaync-client','--skip-wait','--count']))
+    else:
+        if action=='dnd':call(['makoctl','mode','-t','do-not-disturb'])
+        elif action=='dismiss':call(['makoctl','dismiss'])
+        elif action=='clear':call(['makoctl','dismiss','-a'])
+        elif action=='open':call(['makoctl','restore'])
+        paused='do-not-disturb' in call(['makoctl','mode']).splitlines();count=0
+    print(json.dumps({'text':('DND' if paused else 'N')+(f' {count}' if count else ''),'class':'paused' if paused else 'active','dnd':paused,'count':count,'tooltip':f'Notificações: {count} · '+('Não perturbe ligado' if paused else 'Clique para abrir histórico')+'\nBotão direito: Não perturbe'},ensure_ascii=False))
+except Exception:
+    if len(sys.argv)==1:print(json.dumps({'text':'N?','class':'unavailable','tooltip':'Servidor de notificações indisponível','dnd':False}))
+    else:print('Notificações indisponíveis',file=sys.stderr);sys.exit(1)
