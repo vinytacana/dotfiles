@@ -1,0 +1,15 @@
+#!/usr/bin/python3
+"""Safe file/project activation in a separate app cgroup."""
+import os,sys
+from pathlib import Path
+sys.dont_write_bytecode=True
+from gi.repository import Gio
+path=Path(sys.argv[2]).expanduser().resolve()
+if not path.exists():raise SystemExit('Caminho não disponível')
+if sys.argv[1]=='file':Gio.AppInfo.launch_default_for_uri(path.as_uri(),None)
+elif sys.argv[1]=='folder':Gio.AppInfo.launch_default_for_uri((path if path.is_dir() else path.parent).as_uri(),None)
+elif sys.argv[1]=='editor':
+    os.execvp('code',['code','--new-window',str(path)])
+elif sys.argv[1]=='terminal':
+    os.execvp('alacritty',['alacritty','--config-file',str(Path.home()/'.config/alacritty/niri.toml'),'--working-directory',str(path if path.is_dir() else path.parent)])
+else:raise SystemExit('Ação inválida')
