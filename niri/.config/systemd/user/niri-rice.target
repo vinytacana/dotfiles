@@ -2,4 +2,4 @@
 Description=Niri rice components
 BindsTo=niri.service
 After=niri.service
-Wants=niri-rice-bar.service mako.service niri-rice-wallpaper.service niri-rice-idle.service niri-rice-polkit.service
+Wants=niri-rice-clipboard.service niri-rice-clipboard-prune.timer niri-rice-bar.service niri-rice-notifications.service niri-rice-notification-prune.timer niri-rice-wallpaper.service niri-rice-idle.service niri-rice-polkit.service
