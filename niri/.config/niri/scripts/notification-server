@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""D-Bus activation preserves Mako outside Niri; SwayNC is Niri-only."""
+import os,sys
+from pathlib import Path
+sys.dont_write_bytecode=True
+if 'niri' in os.environ.get('XDG_CURRENT_DESKTOP','').split(':'):
+    root=Path.home()/'.config/niri'
+    os.execv('/usr/bin/swaync',['swaync','--config',str(root/'swaync.json'),'--style',str(root/'swaync.css')])
+else:
+    os.execv('/usr/bin/mako',['mako'])
