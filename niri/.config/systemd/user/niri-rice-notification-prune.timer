@@ -1,0 +1,7 @@
+[Unit]
+Description=Prune Niri notifications to 100 entries and one hour
+PartOf=niri-rice.target graphical-session.target
+[Timer]
+OnActiveSec=60s
+OnUnitActiveSec=60s
+AccuracySec=5s
