@@ -33,37 +33,7 @@ def query(args):
         return 'Indisponível'
 
 
-def label(text, style=None):
-    widget = Gtk.Label(label=text, xalign=0)
-    widget.set_line_wrap(True)
-    if style:
-        widget.get_style_context().add_class(style)
-    return widget
-
-
-def button(text, callback, icon=None):
-    widget = Gtk.Button(label=text)
-    if icon:
-        widget.set_image(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.BUTTON))
-        widget.set_always_show_image(True)
-    widget.connect('clicked', lambda *_: callback())
-    return widget
-
-
-def async_update(work, done):
-    def task():
-        try:
-            value = work()
-        except Exception as error:
-            value = str(error)
-        GLib.idle_add(lambda: (done(value), False)[1])
-    threading.Thread(target=task, daemon=True).start()
-
-
-def app_image(app, size=28):
-    image = Gtk.Image.new_from_gicon(app.get_icon(), Gtk.IconSize.DIALOG)
-    image.set_pixel_size(size)
-    return image
+from rice_widgets import label, button, async_update, app_image
 
 
 class CalendarWindow(Gtk.ApplicationWindow):
@@ -470,6 +440,7 @@ class Rice(Gtk.Application):
         super().__init__(application_id='org.niri.Rice',flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.settings=None
         self.calendar=None
+        self.popup=None
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
@@ -491,6 +462,18 @@ class Rice(Gtk.Application):
         action=args[0] if args else 'settings'
         if action=='close':
             for window in list(self.get_windows()):window.destroy()
+        elif action in ('spotlight','clipboard','switcher','switcher-back','control'):
+            from rice_panels import ControlCenter, WindowSwitcher, ClipboardPanel
+            from rice_launcher import Spotlight
+            factory={'control':ControlCenter,'switcher':WindowSwitcher,'switcher-back':WindowSwitcher,'clipboard':ClipboardPanel,'spotlight':Spotlight}[action]
+            if isinstance(self.popup,WindowSwitcher) and action.startswith('switcher'):
+                self.popup.cycle(-1 if action=='switcher-back' else 1)
+            elif isinstance(self.popup,factory):self.popup.destroy()
+            else:
+                if self.popup:self.popup.destroy()
+                self.popup=factory(self,True) if action=='switcher-back' else factory(self)
+                self.popup.connect('destroy',lambda *_:setattr(self,'popup',None))
+                self.popup.show_all();self.popup.present()
         elif action=='calendar':
             if self.calendar:self.calendar.destroy()
             else:
@@ -508,7 +491,7 @@ class Rice(Gtk.Application):
                 self.settings.render_favorites()
             self.settings.show_all();self.settings.present()
         else:
-            command.printerr_literal('Use settings, favorites, calendar ou close\n')
+            command.printerr_literal('Use settings, favorites, calendar, control, switcher, clipboard, spotlight ou close\n')
             return 1
         return 0
 
