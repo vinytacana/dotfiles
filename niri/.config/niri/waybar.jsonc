@@ -54,23 +54,24 @@
       "format-wifi": "Wi-Fi {signalStrength}%",
       "format-ethernet": "LAN",
       "format-disconnected": "Offline",
-      "tooltip-format": "{ifname} · {essid}",
-      "on-click": "~/.config/niri/scripts/gtk3-app nm-connection-editor"
+      "tooltip-format": "{ifname} · {essid}\nClique: central de controle",
+      "on-click": "~/.config/niri/scripts/settings-hub control"
     },
     "pulseaudio": {
       "format": " {volume}%",
       "format-muted": "󰝟",
-      "on-click": "pavucontrol",
+      "on-click": "~/.config/niri/scripts/settings-hub control",
       "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
       "scroll-step": 5,
-      "max-volume": 100
+      "max-volume": 100,
+      "tooltip-format": "pulseaudio\nClique: central de controle"
     },
     "bluetooth": {
       "format": "",
       "format-disabled": "",
       "format-off": "",
-      "on-click": "~/.config/niri/scripts/gtk3-app blueman-manager",
-      "tooltip-format": "Bluetooth · {status}"
+      "on-click": "~/.config/niri/scripts/settings-hub control",
+      "tooltip-format": "Bluetooth · {status}\nClique: central de controle"
     },
     "battery": {
       "bat": "BAT0",
@@ -80,14 +81,15 @@
         "warning": 25,
         "critical": 10
       },
-      "interval": 30
+      "interval": 30,
+      "on-click": "~/.config/niri/scripts/settings-hub control"
     },
     "custom/notifications": {
       "exec": "~/.config/niri/scripts/notifications",
       "return-type": "json",
       "interval": 5,
-      "on-click": "makoctl mode -t do-not-disturb",
-      "on-click-right": "makoctl dismiss -a"
+      "on-click": "~/.config/niri/scripts/notifications open",
+      "on-click-right": "~/.config/niri/scripts/notifications dnd"
     },
     "custom/settings": {
       "format": "",
