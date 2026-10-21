@@ -58,7 +58,10 @@ def appearance():
 
 
 def desktop(identity):
-    return Gio.DesktopAppInfo.new(ALIASES.get(identity, identity))
+    try:
+        return Gio.DesktopAppInfo.new(ALIASES.get(identity, identity))
+    except (TypeError, GLib.Error):
+        return None
 
 
 def windows():
@@ -156,3 +159,14 @@ def open_or_focus(identity):
     """Focus the most recently used matching window, or activate its desktop file."""
     if not focus(identity):
         start_desktop(identity)
+
+
+def desktop_for_window(window):
+    """Resolve actual Niri app IDs through desktop metadata without guessing commands."""
+    identity=window.get('app_id') or ''
+    for candidate in [identity+'.desktop',identity]:
+        app=desktop(candidate)
+        if app:return app
+    for app in Gio.AppInfo.get_all():
+        if isinstance(app,Gio.DesktopAppInfo) and (app.get_startup_wm_class() or '').casefold()==identity.casefold():return app
+    return None
