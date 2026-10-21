@@ -145,6 +145,11 @@ binds {
     Mod+Comma hotkey-overlay-title="Configurações" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub"; }
     Mod+Shift+W hotkey-overlay-title="Escolher wallpaper" { spawn "sh" "-c" "exec ~/.config/niri/scripts/wallpaper-manager choose"; }
     Mod+Shift+D hotkey-overlay-title="Mostrar ou ocultar dock" { spawn "sh" "-c" "exec ~/.config/niri/scripts/dock-mode toggle"; }
+    Alt+Tab hotkey-overlay-title="Alternador de janelas" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub switcher"; }
+    Alt+Shift+Tab { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub switcher-back"; }
+    Mod+Ctrl+D hotkey-overlay-title="Spotlight" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub spotlight"; }
+    Mod+Shift+C hotkey-overlay-title="Histórico de cópia" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub clipboard"; }
+    Mod+Ctrl+Comma hotkey-overlay-title="Central de controle" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub control"; }
     Mod+O { toggle-overview; }
     Mod+Tab { focus-workspace-previous; }
     Mod+BracketLeft { consume-or-expel-window-left; }
@@ -152,8 +157,9 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
     Mod+Shift+E { quit; }
     Super+Alt+L hotkey-overlay-title="Bloquear tela" { spawn "sh" "-c" "exec ~/.config/niri/scripts/lock"; }
-    Mod+N { spawn "makoctl" "dismiss"; }
-    Mod+Shift+N { spawn "makoctl" "mode" "-t" "do-not-disturb"; }
+    Mod+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dismiss"; }
+    Mod+Shift+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dnd"; }
+    Mod+Ctrl+N hotkey-overlay-title="Histórico de notificações" { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications open"; }
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
