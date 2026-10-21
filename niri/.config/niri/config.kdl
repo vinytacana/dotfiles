@@ -161,6 +161,7 @@ binds {
     Mod+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dismiss"; }
     Mod+Shift+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dnd"; }
     Mod+Ctrl+N hotkey-overlay-title="Histórico de notificações" { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications open"; }
+    Super+Shift+S hotkey-overlay-title="Capturar tela" { screenshot; }
     Print { screenshot; }
     Ctrl+Print { screenshot-screen; }
     Alt+Print { screenshot-window; }
