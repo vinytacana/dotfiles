@@ -1,0 +1,16 @@
+#!/usr/bin/python3
+"""Bound volatile SwayNC history without reading or journaling notification bodies."""
+import os,subprocess,time
+from pathlib import Path
+if 'niri' not in os.environ.get('XDG_CURRENT_DESKTOP','').split(':'):raise SystemExit()
+def client(arg):return subprocess.check_output(['swaync-client','--skip-wait',arg],text=True,stderr=subprocess.DEVNULL,timeout=3).strip()
+try:
+    root=Path(os.environ['XDG_RUNTIME_DIR'])/'niri-rice';root.mkdir(mode=0o700,exist_ok=True)
+    epoch=root/'notifications-epoch';now=time.time()
+    if not epoch.exists():epoch.write_text(str(now))
+    if now-float(epoch.read_text())>=3600:
+        client('--close-all');epoch.write_text(str(now))
+    else:
+        if int(client('--count'))>100:
+            client('--close-all');epoch.write_text(str(now))
+except (OSError,ValueError,subprocess.SubprocessError):raise SystemExit(1)
