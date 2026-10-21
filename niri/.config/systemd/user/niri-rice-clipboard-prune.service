@@ -1,0 +1,9 @@
+[Unit]
+Description=Expire clipboard text after at most 31 minutes
+PartOf=niri-rice.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+[Service]
+Type=oneshot
+ExecStart=%h/.config/niri/scripts/clipboard-control prune
+StandardOutput=null
+StandardError=null
