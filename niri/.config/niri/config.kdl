@@ -156,6 +156,7 @@ binds {
     Mod+BracketRight { consume-or-expel-window-right; }
     Mod+Shift+Slash { show-hotkey-overlay; }
     Mod+Shift+E { quit; }
+    Super+L hotkey-overlay-title="Bloquear tela" { spawn "sh" "-c" "exec ~/.config/niri/scripts/lock"; }
     Super+Alt+L hotkey-overlay-title="Bloquear tela" { spawn "sh" "-c" "exec ~/.config/niri/scripts/lock"; }
     Mod+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dismiss"; }
     Mod+Shift+N { spawn "sh" "-c" "exec ~/.config/niri/scripts/notifications dnd"; }
