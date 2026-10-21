@@ -1,0 +1,23 @@
+#!/usr/bin/python3
+import os,subprocess,sys
+sys.dont_write_bytecode=True
+from rice_common import STATE
+from rice_clipboard import directory,delete,connect,prune
+flag=STATE/'clipboard-disabled';action=sys.argv[1] if len(sys.argv)>1 else 'status'
+if action=='prepare':
+    types=subprocess.run(['wl-paste','--list-types'],text=True,capture_output=True,timeout=2).stdout.splitlines()
+    marker=directory()/'ignore-initial'
+    if any('text' in mime.lower() or mime in ['UTF8_STRING','STRING'] for mime in types):marker.touch(mode=0o600)
+    else:marker.unlink(missing_ok=True)
+elif action=='clear':delete()
+elif action=='prune':
+    with connect() as db:prune(db)
+elif action=='pause':
+    STATE.mkdir(parents=True,exist_ok=True);flag.touch(mode=0o600)
+    subprocess.run(['systemctl','--user','stop','niri-rice-clipboard.service'],check=True)
+    delete()
+elif action=='resume':
+    flag.unlink(missing_ok=True)
+    subprocess.run(['systemctl','--user','start','niri-rice-clipboard.service'],check=True)
+elif action=='status':print('paused' if flag.exists() else 'capturing')
+else:raise SystemExit('Use status, pause, resume ou clear')
