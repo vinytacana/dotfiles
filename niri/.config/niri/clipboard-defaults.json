@@ -1,0 +1,7 @@
+{
+  "max_entries": 40,
+  "max_bytes": 16384,
+  "ttl_seconds": 1800,
+  "excluded_apps": ["keepass", "bitwarden", "1password", "protonpass", "seahorse", "authenticator", "password"],
+  "excluded_mime": ["x-kde-passwordmanagerhint", "application/x-keepassxc", "application/x-1password", "application/x-bitwarden"]
+}
