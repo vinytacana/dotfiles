@@ -1,0 +1,8 @@
+[Unit]
+Description=Bound volatile Niri notification history
+PartOf=niri-rice.target
+After=niri-rice-notifications.service
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+[Service]
+Type=oneshot
+ExecStart=%h/.config/niri/scripts/notification-prune
