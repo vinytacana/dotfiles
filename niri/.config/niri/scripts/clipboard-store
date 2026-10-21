@@ -1,0 +1,16 @@
+#!/usr/bin/python3
+"""wl-paste watch handler: reject known sensitive offers before storing text."""
+import os,subprocess,sys,json
+sys.dont_write_bytecode=True
+from rice_clipboard import config,directory,store
+try:
+    first=directory()/'ignore-initial'
+    if first.exists():first.unlink();raise SystemExit()
+    if os.environ.get('CLIPBOARD_STATE') in {'sensitive','nil','clear'}:raise SystemExit()
+    types=subprocess.check_output(['wl-paste','--list-types'],stderr=subprocess.DEVNULL,text=True,timeout=2).splitlines()
+    window=json.loads(subprocess.check_output(['niri','msg','-j','focused-window'],stderr=subprocess.DEVNULL,text=True,timeout=2)) or {}
+    data=sys.stdin.buffer.read(config()['max_bytes']+1)
+    store(data,types,window.get('app_id') or '',os.environ.get('CLIPBOARD_STATE','data'))
+except Exception:
+    # Never log clipboard data, command stdout, or exception details.
+    raise SystemExit(0)
