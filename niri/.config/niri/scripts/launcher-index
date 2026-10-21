@@ -1,0 +1,5 @@
+#!/usr/bin/python3
+import sys
+sys.dont_write_bytecode=True
+from rice_search import build_index
+print('Filename/project index updated:',build_index(),'entries (no file contents indexed)')
