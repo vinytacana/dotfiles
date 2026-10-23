@@ -20,7 +20,7 @@ try:
         elif action=='clear':call(['makoctl','dismiss','-a'])
         elif action=='open':call(['makoctl','restore'])
         paused='do-not-disturb' in call(['makoctl','mode']).splitlines();count=0
-    print(json.dumps({'text':('DND' if paused else 'N')+(f' {count}' if count else ''),'class':'paused' if paused else 'active','dnd':paused,'count':count,'tooltip':f'Notificações: {count} · '+('Não perturbe ligado' if paused else 'Clique para abrir histórico')+'\nBotão direito: Não perturbe'},ensure_ascii=False))
+    print(json.dumps({'text':('DND' if paused else 'N')+(f' {count}' if count else ''),'alt':'paused' if paused else ('pending' if count else 'empty'),'class':'paused' if paused else 'active','dnd':paused,'count':count,'tooltip':f'Notificações: {count} · '+('Não perturbe ligado' if paused else 'Clique para abrir histórico')+'\nBotão direito: Não perturbe'},ensure_ascii=False))
 except Exception:
-    if len(sys.argv)==1:print(json.dumps({'text':'N?','class':'unavailable','tooltip':'Servidor de notificações indisponível','dnd':False}))
+    if len(sys.argv)==1:print(json.dumps({'text':'N?','alt':'unavailable','class':'unavailable','tooltip':'Servidor de notificações indisponível','dnd':False}))
     else:print('Notificações indisponíveis',file=sys.stderr);sys.exit(1)
