@@ -33,11 +33,56 @@ button image { margin-right: 6px; }
 .search-result { padding: 8px; border-radius: 10px; }
 .search-result:selected { background: #45475a; color: #b4befe; }
 .popup-card entry { background: #181825; color: #cdd6f4; font-size: 18px; padding: 8px; border-radius: 10px; }
-.control-center-card button { padding: 5px 8px; min-height: 22px; }
-.control-center-card .section-title { font-size: 15px; }
-.control-center-card scale { padding: 2px 0; margin: 1px 0; }
-.control-center-card .status-card { padding: 8px; }
-.control-section { background: rgba(24,24,37,0.9); border: 1px solid #313244; border-radius: 12px; padding: 9px; }
+/* Shared Mocha surfaces, scoped to the on-demand quick controls. */
+@define-color cc_base #1e1e2e;
+@define-color cc_surface #313244;
+@define-color cc_accent #cba6f7;
+@define-color cc_text #cdd6f4;
+@define-color cc_secondary #a6adc8;
+#control-overlay { background: transparent; }
+.control-center-card {
+    background: alpha(@cc_base,0.98); border: 1px solid rgba(166,173,200,0.16);
+    border-radius: 18px; padding: 18px; color: @cc_text;
+    box-shadow: 0 6px 20px rgba(17,17,27,0.32);
+    font-family: "Noto Sans", sans-serif; font-size: 13px;
+}
+.control-center-card .cc-title { font-size: 18px; font-weight: 600; }
+.control-center-card .cc-label { font-size: 12px; font-weight: 600; }
+.control-center-card .cc-secondary { font-size: 11px; color: @cc_secondary; }
+.control-center-card button {
+    background: transparent; background-image: none; border: 1px solid transparent;
+    border-radius: 10px; padding: 6px; min-height: 20px;
+    color: @cc_text; box-shadow: none; outline-width: 0;
+    transition: background-color 120ms ease-in-out, color 120ms ease-in-out;
+}
+.control-center-card button:hover { background: @cc_surface; border-color: transparent; }
+.control-center-card button:focus { border-color: alpha(@cc_accent,0.65); }
+.control-center-card button:disabled { color: #6c7086; }
+.control-center-card button image { margin: 0; -gtk-icon-shadow: none; }
+.control-center-card .cc-icon-button { min-width: 20px; padding: 5px; }
+.control-center-card .cc-connection { background: rgba(49,50,68,0.55); border-radius: 14px; }
+.control-center-card .cc-connection > button:first-child { padding: 12px 8px 12px 12px; }
+.control-center-card .cc-connection.enabled { background: alpha(@cc_accent,0.14); }
+.control-center-card .cc-connection.enabled image { color: @cc_accent; }
+.control-center-card .cc-quick { background: rgba(49,50,68,0.45); padding: 10px 8px; border-radius: 12px; }
+.control-center-card .cc-quick.enabled { background: alpha(@cc_accent,0.18); }
+.control-center-card .cc-quick.enabled image { color: @cc_accent; }
+.control-center-card .muted { color: #f38ba8; }
+.control-center-card .cc-icon-button.muted { color: #f38ba8; background: rgba(243,139,168,0.1); }
+.control-center-card scale { padding: 6px 8px; margin: 0; }
+.control-center-card scale trough { min-height: 8px; border-radius: 8px; background: @cc_surface; }
+.control-center-card scale highlight { min-height: 8px; border-radius: 8px; background: @cc_accent; }
+.control-center-card scale slider { min-width: 14px; min-height: 14px; background: @cc_text; }
+.control-center-card .cc-battery { background: rgba(49,50,68,0.35); padding: 10px; border-radius: 12px; }
+.control-center-card separator { background: rgba(166,173,200,0.14); min-height: 1px; }
+.control-center-card .cc-footer button { color: @cc_secondary; font-size: 12px; }
+.control-center-card .cc-footer button:hover { color: @cc_accent; }
+.control-center-card .cc-footer button image { margin-right: 5px; }
+.control-center-card .cc-error { color: #f9e2af; font-size: 11px; }
+.control-center-card .cc-device { background: rgba(49,50,68,0.35); padding: 10px; }
+.control-center-card button.enabled { background: alpha(@cc_accent,0.14); color: @cc_accent; }
+.control-center-card .cc-energy-summary { font-size: 18px; color: @cc_text; }
+.control-center-card combobox button { background: rgba(49,50,68,0.5); }
 /* Mocha Calendar: transparent dismissal surface, one compact card under clock. */
 #calendar-overlay { background: transparent; }
 .calendar-card {

@@ -562,6 +562,8 @@ class Rice(Gtk.Application):
 
     def do_startup(self):
         Gtk.Application.do_startup(self)
+        self.control_visible=Gio.SimpleAction.new_stateful("control-visible",None,GLib.Variant("b",False))
+        self.add_action(self.control_visible)
         settings=Gtk.Settings.get_default()
         settings.set_property('gtk-application-prefer-dark-theme',True)
         settings.set_property('gtk-theme-name','Adwaita')
@@ -587,10 +589,15 @@ class Rice(Gtk.Application):
             factory={'control':ControlCenter,'switcher':WindowSwitcher,'switcher-back':WindowSwitcher,'clipboard':ClipboardPanel,'spotlight':Spotlight,'power':PowerMenu}[action]
             if isinstance(self.popup,WindowSwitcher) and action.startswith('switcher'):
                 self.popup.cycle(-1 if action=='switcher-back' else 1)
+            elif isinstance(self.popup,ControlCenter) and action=='control':
+                page=args[1] if len(args)>1 else 'main'
+                if self.popup.page==page:self.popup.destroy()
+                else:self.popup.show_page(page);self.popup.present()
             elif isinstance(self.popup,factory):self.popup.destroy()
             else:
                 if self.popup:self.popup.destroy()
-                self.popup=factory(self,True) if action=='switcher-back' else factory(self)
+                self.popup=(factory(self,True) if action=='switcher-back' else
+                            factory(self,args[1] if len(args)>1 else 'main') if action=='control' else factory(self))
                 self.popup.connect('destroy',lambda *_:setattr(self,'popup',None))
                 self.popup.show_all();self.popup.present()
         elif action=='calendar':
