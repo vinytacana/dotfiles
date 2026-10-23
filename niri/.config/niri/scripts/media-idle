@@ -1,0 +1,80 @@
+#!/usr/bin/python3
+"""Waybar idle placeholder: one D-Bus listener, no polling or file state.
+
+Stopped is distinct from no player: hide obsolete tags and describe it in the
+tooltip. Playing/Paused remain entirely in Waybar's native MPRIS modules.
+This process belongs to Waybar and is stopped with its service.
+"""
+import json
+import signal
+import sys
+sys.dont_write_bytecode = True
+import gi
+gi.require_version('Gio', '2.0')
+from gi.repository import Gio, GLib, GLibUnix
+
+NAME = 'org.mpris.MediaPlayer2.playerctld'
+PATH = '/org/mpris/MediaPlayer2'
+
+
+def placeholder(owner, players, status):
+    if owner and players and status in ['Playing', 'Paused']:
+        return {'text': '', 'class': 'hidden'}
+    if not owner:
+        state, detail = 'unavailable', 'Serviço MPRIS indisponível. Clique para abrir/focar Spotify.'
+    elif not players:
+        state, detail = 'idle', 'Nenhum player disponível. Clique para abrir/focar Spotify.'
+    elif status == 'Stopped':
+        state, detail = 'stopped', 'Player parado; metadados ocultos. Clique para focar o player.'
+    else:
+        state, detail = 'unavailable', 'Estado MPRIS indisponível. Clique para focar o player.'
+    return {'text': '<span foreground="#1db954"></span>  Nada tocando',
+            'class': state, 'tooltip': detail}
+
+
+def main():
+    flags = Gio.DBusProxyFlags.DO_NOT_AUTO_START
+    proxies = [Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION, flags, None, NAME, PATH, iface, None)
+               for iface in ['com.github.altdesktop.playerctld', 'org.mpris.MediaPlayer2.Player']]
+    loop = GLib.MainLoop()
+    pending = 0
+    previous = None
+
+    def emit():
+        nonlocal pending, previous
+        pending = 0
+        owner = bool(proxies[0].get_name_owner())
+        names = proxies[0].get_cached_property('PlayerNames')
+        status = proxies[1].get_cached_property('PlaybackStatus')
+        output = placeholder(owner, names.unpack() if names else [], status.unpack() if status else None)
+        if output != previous:
+            if output['class'] == 'unavailable':
+                print('media-idle: estado do proxy MPRIS indisponível', file=sys.stderr, flush=True)
+            print(json.dumps(output, ensure_ascii=False), flush=True)
+            previous = output
+        return False
+
+    def schedule(*_):
+        nonlocal pending
+        if not pending:
+            pending = GLib.timeout_add(150, emit)
+
+    def changed(proxy, values, invalidated):
+        if {'PlayerNames', 'PlaybackStatus'} & (set(values.unpack()) | set(invalidated)):
+            schedule()
+
+    for proxy in proxies:
+        proxy.connect('notify::g-name-owner', schedule)
+        proxy.connect('g-properties-changed', changed)
+    def stop():
+        loop.quit()
+        return False
+    GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, stop)
+    emit()
+    loop.run()
+
+
+if __name__ == '__main__':
+    try:main()
+    except (GLib.Error, OSError) as error:
+        sys.exit('media-idle: ' + str(error))

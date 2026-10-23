@@ -1,19 +1,35 @@
 #!/usr/bin/python3
-"""Raise the MPRIS player selected by playerctld, without launching another instance."""
+"""Raise the selected player; with none, focus-or-launch the installed Spotify."""
 import sys
 sys.dont_write_bytecode=True
 import gi
 gi.require_version('Gio','2.0')
 from gi.repository import Gio,GLib
-from rice_common import focus
+from rice_common import desktop, focus, open_or_focus
 
-try:
-    root=Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION,Gio.DBusProxyFlags.NONE,None,
+
+def spotify():
+    # Resolve desktop metadata for RPM and Flatpak; reuse dock lifetime/focus.
+    for identity in ['com.spotify.Client.desktop', 'spotify.desktop']:
+        if desktop(identity):
+            open_or_focus(identity)
+            return
+    raise ValueError('Spotify não está instalado (arquivo .desktop ausente).')
+
+
+def main():
+    root=Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION,Gio.DBusProxyFlags.DO_NOT_AUTO_START,None,
         'org.mpris.MediaPlayer2.playerctld','/org/mpris/MediaPlayer2','org.mpris.MediaPlayer2',None)
     entry=root.get_cached_property('DesktopEntry')
-    identity=entry.unpack()+'.desktop' if entry else None
-    # Desktop metadata provides StartupWMClass for native and Flatpak players.
-    if identity and focus(identity):sys.exit(0)
+    if not entry or not entry.unpack():
+        spotify()
+        return
+    identity=entry.unpack().removesuffix('.desktop')+'.desktop'
+    if focus(identity):return
     root.call_sync('Raise',None,Gio.DBusCallFlags.NONE,3000,None)
-except (GLib.Error,OSError,ValueError) as error:
-    sys.exit('media-player: '+str(error))
+
+
+if __name__ == '__main__':
+    try:main()
+    except (GLib.Error,OSError,ValueError) as error:
+        sys.exit('media-player: '+str(error))
