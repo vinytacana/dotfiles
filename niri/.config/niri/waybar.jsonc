@@ -160,8 +160,9 @@
     "group/media": {
       "orientation": "horizontal",
       "modules": [
-        "mpris#previous",
+        "custom/media-idle",
         "mpris#track",
+        "mpris#previous",
         "mpris#play",
         "mpris#next"
       ]
@@ -171,30 +172,22 @@
       "interval": 1,
       "player-icons": {
         "default": "󰝚",
-        "spotify": "",
+        "spotify": "<span foreground=\"#1db954\" size=\"large\"></span>",
         "chromium": "",
         "firefox": "",
         "vlc": "󰕼",
         "mpv": "󰐹"
       },
-      "title-len": 14,
-      "artist-len": 8,
-      "album-len": 0,
-      "dynamic-order": [
-        "title",
-        "artist"
-      ],
-      "dynamic-importance-order": [
-        "title",
-        "artist"
-      ],
-      "dynamic-separator": " · ",
-      "dynamic-len": 28,
-      "tooltip-format": "{player} · {status}\n{title}\n{artist}\nClique: abrir/focar player",
-      "max-length": 28,
-      "format": "{player_icon} {dynamic}",
+      "title-len": 24,
+      "artist-len": 18,
+      "tooltip-format": "{player} · {status}\n{title}\nArtista: {artist}\nÁlbum: {album}\nClique: abrir/focar player",
+      "max-length": 26,
+      "format": "{player_icon}  <b>{title}</b> <span foreground=\"#a6adc8\">· {artist}</span>",
       "on-click": "~/.config/niri/scripts/media-player",
-      "on-click-right": "~/.config/niri/scripts/media-player"
+      "on-click-right": "~/.config/niri/scripts/media-player",
+      "min-length": 26,
+      "align": 0.0,
+      "enable-tooltip-len-limits": false
     },
     "mpris#previous": {
       "player": "playerctld",
@@ -207,7 +200,9 @@
         "paused": "󰐊",
         "stopped": "󰐊"
       },
-      "tooltip-format": "Faixa anterior\n{player}: {title}"
+      "tooltip-format": "Faixa anterior\n{player}: {title}\n{artist}",
+      "min-length": 2,
+      "align": 0.5
     },
     "mpris#play": {
       "player": "playerctld",
@@ -220,7 +215,9 @@
         "paused": "󰐊",
         "stopped": "󰐊"
       },
-      "tooltip-format": "Reproduzir / pausar\n{player}: {title}"
+      "tooltip-format": "Reproduzir / pausar\n{player}: {title}\n{artist}",
+      "min-length": 2,
+      "align": 0.5
     },
     "mpris#next": {
       "player": "playerctld",
@@ -233,7 +230,22 @@
         "paused": "󰐊",
         "stopped": "󰐊"
       },
-      "tooltip-format": "Próxima faixa\n{player}: {title}"
+      "tooltip-format": "Próxima faixa\n{player}: {title}\n{artist}",
+      "min-length": 2,
+      "align": 0.5
+    },
+    "custom/media-idle": {
+      "exec": "~/.config/niri/scripts/media-idle",
+      "return-type": "json",
+      "format": "{text}",
+      "hide-empty-text": true,
+      "restart-interval": 3,
+      "exec-on-event": false,
+      "on-click": "~/.config/niri/scripts/media-player",
+      "on-click-right": "~/.config/niri/scripts/media-player",
+      "min-length": 18,
+      "max-length": 18,
+      "align": 0.0
     }
   },
   {

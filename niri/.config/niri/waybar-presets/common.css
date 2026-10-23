@@ -61,17 +61,26 @@ window#waybar.top #custom-notifications.unavailable { color: #f38ba8; }
 window#waybar.top #bluetooth.off, window#waybar.top #bluetooth.disabled { color: #6c7086; }
 window#waybar.top #battery.charging { color: #a6e3a1; }
 window#waybar.top #battery.warning { color: #f9e2af; }
-/* Cada módulo MPRIS se oculta nativamente sem player; o grupo não deixa cápsula vazia. */
+/* MPRIS mantém o guard de 1s. O placeholder observa D-Bus sem polling. */
 window#waybar.top #media { padding: 0; margin: 0; background: transparent; }
-window#waybar.top #mpris {
+window#waybar.top #mpris, window#waybar.top #custom-media-idle {
     background: rgba(24,24,37,0.94); color: #cdd6f4;
-    padding: 0 7px; margin: 2px 0; min-height: 34px;
+    padding: 0; margin: 2px 0; min-height: 34px;
+    transition: background-color 140ms ease-in-out, color 140ms ease-in-out;
 }
-window#waybar.top #mpris.previous { border-radius: 17px 0 0 17px; padding-left: 11px; }
-window#waybar.top #mpris.next { border-radius: 0 17px 17px 0; padding-right: 11px; }
-window#waybar.top #mpris.track { color: #b4befe; padding: 0 6px; }
+window#waybar.top #mpris.track {
+    border-radius: 17px 0 0 17px; padding: 0 12px; min-width: 200px;
+}
+window#waybar.top #mpris.next { border-radius: 0 17px 17px 0; padding-right: 6px; }
 window#waybar.top #mpris.previous, window#waybar.top #mpris.play,
-window#waybar.top #mpris.next { font-size: 16px; }
+window#waybar.top #mpris.next { font-size: 17px; min-width: 30px; padding-left: 2px; }
+window#waybar.top #mpris.play { color: #b4befe; }
 window#waybar.top #mpris.paused { color: #a6adc8; }
-window#waybar.top #mpris:hover { background: #313244; color: #cba6f7; }
+window#waybar.top #mpris:hover,
+window#waybar.top #custom-media-idle:hover { background: #313244; color: #b4befe; }
+window#waybar.top #custom-media-idle {
+    border: 1px solid #313244; border-radius: 17px;
+    color: #a6adc8; padding: 0 12px;
+}
+window#waybar.top #custom-media-idle.unavailable { border-color: #f38ba8; }
 window#waybar.top #tray { padding: 0 9px; }

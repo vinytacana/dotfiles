@@ -37,8 +37,8 @@ def render(selected=None):
                     'margin-left': settings['margin'], 'margin-right': settings['margin'],
                     'fixed-center': True, 'expand-left': False, 'expand-right': False})
         top['mpris#track']['max-length'] = settings['track_chars']
-        if selected == 'dynamic-island-lite':
-            top['mpris#track'].update({'title-len':16, 'artist-len':10, 'dynamic-len':32})
+        # Same character width on both ends keeps transport controls stationary.
+        top['mpris#track']['min-length'] = settings['track_chars']
         css += '\n'+(PRESETS/'common.css').read_text()+'\n'+(PRESETS/(selected+'.css')).read_text()
     return bars, css
 
