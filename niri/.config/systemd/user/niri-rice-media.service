@@ -1,0 +1,12 @@
+[Unit]
+Description=Niri rice: event-driven MPRIS active-player proxy
+PartOf=niri-rice.target graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+
+[Service]
+Type=dbus
+BusName=org.mpris.MediaPlayer2.playerctld
+ExecStart=/usr/bin/playerctld
+Restart=on-failure
+RestartSec=3

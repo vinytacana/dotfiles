@@ -1,0 +1,7 @@
+/* Dynamic Island Lite: destaque musical à direita, mantendo só o relógio no centro. */
+window#waybar.top #mpris { background: rgba(49,50,68,0.94); color: #b4befe; }
+window#waybar.top #mpris.track { font-weight: 600; }
+window#waybar.top #mpris.previous { border-left: 1px solid #585b70; }
+window#waybar.top #mpris.next { border-right: 1px solid #585b70; }
+window#waybar.top #clock { border-color: #45475a; }
+window#waybar.top #window { background: transparent; border-color: transparent; }

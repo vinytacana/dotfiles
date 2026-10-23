@@ -3,37 +3,35 @@
     "name": "top",
     "layer": "top",
     "position": "top",
-    "height": 38,
-    "spacing": 2,
-    "margin-top": 6,
-    "margin-left": 8,
-    "margin-right": 8,
+    "height": 40,
+    "spacing": 6,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
     "modules-left": [
+      "custom/system",
       "niri/workspaces",
+      "group/resources",
       "niri/window"
     ],
     "modules-center": [
       "clock"
     ],
     "modules-right": [
-      "cpu",
-      "memory",
-      "network",
-      "bluetooth",
-      "pulseaudio",
-      "battery",
-      "custom/notifications",
-      "custom/settings",
+      "group/media",
+      "group/connectivity",
       "tray",
-      "custom/power"
+      "group/session"
     ],
     "niri/workspaces": {
-      "format": "{name}",
-      "all-outputs": false
+      "format": "{value}",
+      "all-outputs": false,
+      "disable-click": false,
+      "disable-markup": true
     },
     "niri/window": {
       "format": "{}",
-      "max-length": 28
+      "max-length": 16
     },
     "clock": {
       "format": "{:%d/%m/%Y  ·  %H:%M}",
@@ -44,19 +42,24 @@
     "cpu": {
       "format": "CPU {usage}%",
       "interval": 5,
-      "tooltip-format": "Processador · {usage}% em uso"
+      "tooltip-format": "Processador · {usage}% em uso",
+      "min-length": 6,
+      "max-length": 8
     },
     "memory": {
       "format": "RAM {percentage}%",
       "interval": 5,
-      "tooltip-format": "{used:.1f} / {total:.1f} GiB"
+      "tooltip-format": "{used:.1f} / {total:.1f} GiB",
+      "min-length": 6,
+      "max-length": 8
     },
     "network": {
-      "format-wifi": "Wi-Fi {signalStrength}%",
-      "format-ethernet": "LAN",
-      "format-disconnected": "Offline",
-      "tooltip-format": "{ifname} · {essid}\nClique: central de controle",
-      "on-click": "~/.config/niri/scripts/settings-hub control"
+      "format-wifi": "󰤨",
+      "format-ethernet": "󰈀",
+      "format-disconnected": "󰤭",
+      "tooltip-format": "{ifname} · {essid}\nSinal: {signalStrength}%\nClique: central de controle",
+      "on-click": "~/.config/niri/scripts/settings-hub control",
+      "max-length": 3
     },
     "pulseaudio": {
       "format": " {volume}%",
@@ -65,7 +68,8 @@
       "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
       "scroll-step": 5,
       "max-volume": 100,
-      "tooltip-format": "pulseaudio\nClique: central de controle"
+      "tooltip-format": "Volume: {volume}%\nClique: central de controle\nBotão direito: silenciar",
+      "max-length": 8
     },
     "bluetooth": {
       "format": "",
@@ -76,21 +80,37 @@
     },
     "battery": {
       "bat": "BAT0",
-      "format": "BAT {capacity}%",
-      "format-charging": "+ {capacity}%",
+      "format": "{icon} {capacity}%",
+      "format-charging": "󰂄 {capacity}%",
       "states": {
         "warning": 25,
         "critical": 10
       },
       "interval": 30,
-      "on-click": "~/.config/niri/scripts/settings-hub control"
+      "on-click": "~/.config/niri/scripts/settings-hub control",
+      "format-icons": [
+        "󰁺",
+        "󰁼",
+        "󰁿",
+        "󰂁",
+        "󰁹"
+      ],
+      "tooltip-format": "Bateria: {capacity}% · {timeTo}",
+      "max-length": 8
     },
     "custom/notifications": {
       "exec": "~/.config/niri/scripts/notifications",
       "return-type": "json",
       "interval": 5,
       "on-click": "~/.config/niri/scripts/notifications open",
-      "on-click-right": "~/.config/niri/scripts/notifications dnd"
+      "on-click-right": "~/.config/niri/scripts/notifications dnd",
+      "format": "{icon}",
+      "format-icons": {
+        "empty": "󰂜",
+        "pending": "󰂚",
+        "paused": "󰂛",
+        "unavailable": "󰂛"
+      }
     },
     "custom/settings": {
       "format": "",
@@ -103,8 +123,117 @@
       "on-click": "~/.config/niri/scripts/settings-hub power"
     },
     "tray": {
-      "spacing": 8,
-      "icon-size": 18
+      "spacing": 6,
+      "icon-size": 16
+    },
+    "fixed-center": true,
+    "custom/system": {
+      "format": "",
+      "tooltip-format": "Fedora · Aplicativos\nBotão direito: Configurações",
+      "on-click": "systemd-run --user --quiet --collect --property=ExitType=cgroup --property=PartOf=graphical-session.target -- fuzzel --config ~/.config/niri/fuzzel.ini",
+      "on-click-right": "~/.config/niri/scripts/settings-hub"
+    },
+    "group/resources": {
+      "orientation": "horizontal",
+      "modules": [
+        "cpu",
+        "memory"
+      ]
+    },
+    "group/connectivity": {
+      "orientation": "horizontal",
+      "modules": [
+        "network",
+        "pulseaudio",
+        "bluetooth",
+        "battery"
+      ]
+    },
+    "group/session": {
+      "orientation": "horizontal",
+      "modules": [
+        "custom/notifications",
+        "custom/settings",
+        "custom/power"
+      ]
+    },
+    "group/media": {
+      "orientation": "horizontal",
+      "modules": [
+        "mpris#previous",
+        "mpris#track",
+        "mpris#play",
+        "mpris#next"
+      ]
+    },
+    "mpris#track": {
+      "player": "playerctld",
+      "interval": 1,
+      "player-icons": {
+        "default": "󰝚",
+        "spotify": "",
+        "chromium": "",
+        "firefox": "",
+        "vlc": "󰕼",
+        "mpv": "󰐹"
+      },
+      "title-len": 14,
+      "artist-len": 8,
+      "album-len": 0,
+      "dynamic-order": [
+        "title",
+        "artist"
+      ],
+      "dynamic-importance-order": [
+        "title",
+        "artist"
+      ],
+      "dynamic-separator": " · ",
+      "dynamic-len": 28,
+      "tooltip-format": "{player} · {status}\n{title}\n{artist}\nClique: abrir/focar player",
+      "max-length": 28,
+      "format": "{player_icon} {dynamic}",
+      "on-click": "~/.config/niri/scripts/media-player",
+      "on-click-right": "~/.config/niri/scripts/media-player"
+    },
+    "mpris#previous": {
+      "player": "playerctld",
+      "interval": 1,
+      "format": "󰒮",
+      "max-length": 2,
+      "on-click": "playerctl --player=playerctld previous",
+      "status-icons": {
+        "playing": "󰏤",
+        "paused": "󰐊",
+        "stopped": "󰐊"
+      },
+      "tooltip-format": "Faixa anterior\n{player}: {title}"
+    },
+    "mpris#play": {
+      "player": "playerctld",
+      "interval": 1,
+      "format": "{status_icon}",
+      "max-length": 2,
+      "on-click": "playerctl --player=playerctld play-pause",
+      "status-icons": {
+        "playing": "󰏤",
+        "paused": "󰐊",
+        "stopped": "󰐊"
+      },
+      "tooltip-format": "Reproduzir / pausar\n{player}: {title}"
+    },
+    "mpris#next": {
+      "player": "playerctld",
+      "interval": 1,
+      "format": "󰒭",
+      "max-length": 2,
+      "on-click": "playerctl --player=playerctld next",
+      "status-icons": {
+        "playing": "󰏤",
+        "paused": "󰐊",
+        "stopped": "󰐊"
+      },
+      "tooltip-format": "Próxima faixa\n{player}: {title}"
     }
   },
   {

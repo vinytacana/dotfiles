@@ -1,0 +1,45 @@
+#!/usr/bin/python3
+"""Select one Waybar preset; configuration stays in Stow, preference stays in state."""
+import argparse
+import os
+import subprocess
+import sys
+sys.dont_write_bytecode = True
+from rice_common import write_json
+from waybar_presets import PREFERENCE, profiles, current, validate, validate_all
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action',choices=['list','current','set','cycle','check'])
+    parser.add_argument('preset',nargs='?',choices=list(profiles()))
+    args=parser.parse_args()
+    if args.action=='list':
+        for identity,settings in profiles().items():print(identity+' · '+settings['label'])
+    elif args.action=='current':print(current())
+    elif args.action=='check':
+        validate_all();print('Quatro presets: JSON/CSS e calendário central OK.')
+    else:
+        if 'niri' not in os.environ.get('XDG_CURRENT_DESKTOP','').split(':'):
+            parser.error('A seleção é exclusiva da sessão Niri.')
+        selected=args.preset
+        if args.action=='cycle':
+            choices=[name for name in profiles() if name!='original']
+            selected=choices[(choices.index(current())+1)%len(choices)] if current() in choices else choices[0]
+        if not selected:parser.error('Informe o preset para set.')
+        # Um erro em um tema não pode impedir a volta ao Original válido.
+        validate(selected)
+        before=PREFERENCE.read_bytes() if PREFERENCE.exists() else None
+        write_json(PREFERENCE,{'preset':selected})
+        try:
+            subprocess.run(['systemctl','--user','restart','niri-rice-bar.service'],check=True,timeout=10)
+            subprocess.run(['systemctl','--user','is-active','--quiet','niri-rice-bar.service'],check=True,timeout=3)
+        except (OSError,subprocess.SubprocessError):
+            if before is None:PREFERENCE.unlink(missing_ok=True)
+            else:PREFERENCE.write_bytes(before)
+            subprocess.run(['systemctl','--user','restart','niri-rice-bar.service'],timeout=10)
+            raise
+        print(profiles()[selected]['label'])
+
+if __name__=='__main__':
+    try:main()
+    except (OSError,ValueError,subprocess.SubprocessError) as error:sys.exit('waybar-preset: '+str(error))

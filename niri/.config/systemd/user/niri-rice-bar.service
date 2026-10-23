@@ -2,6 +2,8 @@
 Description=Niri rice: bar
 PartOf=niri-rice.target graphical-session.target
 After=graphical-session.target
+Wants=niri-rice-media.service
+After=niri-rice-media.service
 ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
 StartLimitIntervalSec=30s
 StartLimitBurst=20

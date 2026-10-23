@@ -1,0 +1,26 @@
+{
+  "mocha-pill": {
+    "label": "Mocha Pill",
+    "height": 40,
+    "margin": 12,
+    "top": 8,
+    "track_chars": 28
+  },
+  "floating-glass": {
+    "label": "Floating Glass",
+    "height": 38,
+    "margin": 16,
+    "top": 10,
+    "track_chars": 28
+  },
+  "dynamic-island-lite": {
+    "label": "Dynamic Island Lite",
+    "height": 40,
+    "margin": 12,
+    "top": 8,
+    "track_chars": 32
+  },
+  "original": {
+    "label": "Original · anterior ao redesign"
+  }
+}

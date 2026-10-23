@@ -1,0 +1,77 @@
+/* Estilos próprios: cápsulas, margens e limites de texto; sem CSS de navegador. */
+window#waybar.top {
+    background: transparent; border: none; border-radius: 0; color: #cdd6f4;
+}
+window#waybar.top * {
+    font-family: "Noto Sans", "UbuntuMono Nerd Font", sans-serif;
+    font-size: 13px; min-height: 0; text-shadow: none;
+}
+window#waybar.top .modules-left,
+window#waybar.top .modules-center,
+window#waybar.top .modules-right { padding: 0; margin: 0; }
+window#waybar.top #custom-system,
+window#waybar.top #workspaces,
+window#waybar.top #window,
+window#waybar.top #resources,
+window#waybar.top #clock,
+window#waybar.top #connectivity,
+window#waybar.top #session,
+window#waybar.top #tray {
+    background: rgba(24,24,37,0.94); border: 1px solid #313244;
+    border-radius: 17px; padding: 0 8px; margin: 2px 0;
+}
+window#waybar.top #custom-system { color: #b4befe; font-size: 19px; padding: 0 12px; }
+window#waybar.top #workspaces { padding: 0 4px; }
+window#waybar.top #workspaces button {
+    background: transparent; color: #bac2de; border: none; border-radius: 12px;
+    min-width: 16px; padding: 0 7px; margin: 4px 1px;
+    box-shadow: none; transition: background-color 120ms ease-in-out, color 120ms ease-in-out;
+}
+window#waybar.top #workspaces button.empty { color: #6c7086; }
+window#waybar.top #workspaces button:hover { background: #45475a; color: #cdd6f4; }
+window#waybar.top #workspaces button.active,
+window#waybar.top #workspaces button.focused { background: #b4befe; color: #181825; font-weight: 700; }
+window#waybar.top #workspaces button.urgent { background: #f38ba8; color: #181825; }
+window#waybar.top #window { color: #a6adc8; padding: 0 10px; margin-left: 0; }
+window#waybar.top #cpu, window#waybar.top #memory,
+window#waybar.top #network, window#waybar.top #pulseaudio,
+window#waybar.top #bluetooth, window#waybar.top #battery,
+window#waybar.top #custom-notifications, window#waybar.top #custom-settings,
+window#waybar.top #custom-power {
+    background: transparent; border: none; padding: 0 7px; margin: 0;
+    border-radius: 11px; color: #cdd6f4;
+}
+window#waybar.top #memory { color: #a6adc8; }
+window#waybar.top #clock {
+    color: #b4befe; font-weight: 700; padding: 0 16px;
+    font-family: "UbuntuMono Nerd Font", monospace; font-size: 14px;
+}
+window#waybar.top #network, window#waybar.top #bluetooth,
+window#waybar.top #custom-notifications, window#waybar.top #custom-settings,
+window#waybar.top #custom-power { font-size: 17px; }
+window#waybar.top #custom-power { color: #b4befe; padding-right: 9px; }
+window#waybar.top #custom-system:hover, window#waybar.top #clock:hover,
+window#waybar.top #network:hover, window#waybar.top #pulseaudio:hover,
+window#waybar.top #bluetooth:hover, window#waybar.top #battery:hover,
+window#waybar.top #custom-notifications:hover, window#waybar.top #custom-settings:hover,
+window#waybar.top #custom-power:hover { background: #313244; }
+window#waybar.top #network.disconnected, window#waybar.top #pulseaudio.muted,
+window#waybar.top #battery.critical, window#waybar.top #custom-notifications.paused,
+window#waybar.top #custom-notifications.unavailable { color: #f38ba8; }
+window#waybar.top #bluetooth.off, window#waybar.top #bluetooth.disabled { color: #6c7086; }
+window#waybar.top #battery.charging { color: #a6e3a1; }
+window#waybar.top #battery.warning { color: #f9e2af; }
+/* Cada módulo MPRIS se oculta nativamente sem player; o grupo não deixa cápsula vazia. */
+window#waybar.top #media { padding: 0; margin: 0; background: transparent; }
+window#waybar.top #mpris {
+    background: rgba(24,24,37,0.94); color: #cdd6f4;
+    padding: 0 7px; margin: 2px 0; min-height: 34px;
+}
+window#waybar.top #mpris.previous { border-radius: 17px 0 0 17px; padding-left: 11px; }
+window#waybar.top #mpris.next { border-radius: 0 17px 17px 0; padding-right: 11px; }
+window#waybar.top #mpris.track { color: #b4befe; padding: 0 6px; }
+window#waybar.top #mpris.previous, window#waybar.top #mpris.play,
+window#waybar.top #mpris.next { font-size: 16px; }
+window#waybar.top #mpris.paused { color: #a6adc8; }
+window#waybar.top #mpris:hover { background: #313244; color: #cba6f7; }
+window#waybar.top #tray { padding: 0 9px; }

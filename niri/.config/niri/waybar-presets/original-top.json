@@ -1,0 +1,108 @@
+{
+  "name": "top",
+  "layer": "top",
+  "position": "top",
+  "height": 38,
+  "spacing": 2,
+  "margin-top": 6,
+  "margin-left": 8,
+  "margin-right": 8,
+  "modules-left": [
+    "niri/workspaces",
+    "niri/window"
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "cpu",
+    "memory",
+    "network",
+    "bluetooth",
+    "pulseaudio",
+    "battery",
+    "custom/notifications",
+    "custom/settings",
+    "tray",
+    "custom/power"
+  ],
+  "niri/workspaces": {
+    "format": "{name}",
+    "all-outputs": false
+  },
+  "niri/window": {
+    "format": "{}",
+    "max-length": 28
+  },
+  "clock": {
+    "format": "{:%d/%m/%Y  ·  %H:%M}",
+    "tooltip-format": "<big>{:%m/%Y}</big>\n<tt>{calendar}</tt>\nClique para abrir o calendário",
+    "locale": "pt_BR.UTF-8",
+    "on-click": "~/.config/niri/scripts/settings-hub calendar"
+  },
+  "cpu": {
+    "format": "CPU {usage}%",
+    "interval": 5,
+    "tooltip-format": "Processador · {usage}% em uso"
+  },
+  "memory": {
+    "format": "RAM {percentage}%",
+    "interval": 5,
+    "tooltip-format": "{used:.1f} / {total:.1f} GiB"
+  },
+  "network": {
+    "format-wifi": "Wi-Fi {signalStrength}%",
+    "format-ethernet": "LAN",
+    "format-disconnected": "Offline",
+    "tooltip-format": "{ifname} · {essid}\nClique: central de controle",
+    "on-click": "~/.config/niri/scripts/settings-hub control"
+  },
+  "pulseaudio": {
+    "format": " {volume}%",
+    "format-muted": "󰝟",
+    "on-click": "~/.config/niri/scripts/settings-hub control",
+    "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "scroll-step": 5,
+    "max-volume": 100,
+    "tooltip-format": "pulseaudio\nClique: central de controle"
+  },
+  "bluetooth": {
+    "format": "",
+    "format-disabled": "",
+    "format-off": "",
+    "on-click": "~/.config/niri/scripts/settings-hub control",
+    "tooltip-format": "Bluetooth · {status}\nClique: central de controle"
+  },
+  "battery": {
+    "bat": "BAT0",
+    "format": "BAT {capacity}%",
+    "format-charging": "+ {capacity}%",
+    "states": {
+      "warning": 25,
+      "critical": 10
+    },
+    "interval": 30,
+    "on-click": "~/.config/niri/scripts/settings-hub control"
+  },
+  "custom/notifications": {
+    "exec": "~/.config/niri/scripts/notifications",
+    "return-type": "json",
+    "interval": 5,
+    "on-click": "~/.config/niri/scripts/notifications open",
+    "on-click-right": "~/.config/niri/scripts/notifications dnd"
+  },
+  "custom/settings": {
+    "format": "",
+    "tooltip-format": "Configurações do sistema",
+    "on-click": "~/.config/niri/scripts/settings-hub"
+  },
+  "custom/power": {
+    "format": "⏻",
+    "tooltip-format": "Menu de energia · Super+Esc",
+    "on-click": "~/.config/niri/scripts/settings-hub power"
+  },
+  "tray": {
+    "spacing": 8,
+    "icon-size": 18
+  }
+}
