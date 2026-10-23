@@ -1,0 +1,84 @@
+"""Preset invariants and transactional selection; service calls use a fake systemctl."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+import contextlib
+import io
+import runpy
+from types import SimpleNamespace
+from unittest.mock import patch
+sys.dont_write_bytecode=True
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts'))
+import waybar_presets as presets
+
+
+class Presets(unittest.TestCase):
+    def test_calendar_and_dock_preserved_in_every_preset(self):
+        baseline=json.loads((ROOT/'waybar.jsonc').read_text())
+        for identity in presets.profiles():
+            bars,css=presets.render(identity)
+            self.assertEqual([bar['name'] for bar in bars],['top','dock'])
+            self.assertEqual(bars[0]['modules-center'],['clock'])
+            self.assertEqual(bars[0]['clock'],baseline[0]['clock'])
+            self.assertEqual(bars[1],baseline[1])
+            self.assertEqual(bars[0]['custom/power']['on-click'],baseline[0]['custom/power']['on-click'])
+            self.assertIn('window#waybar.dock',css)
+            if identity!='original':
+                self.assertTrue(bars[0]['fixed-center'])
+                self.assertLessEqual(bars[0]['mpris#track']['max-length'],32)
+                self.assertLessEqual(bars[0]['niri/window']['max-length'],18)
+                self.assertTrue(all(bars[0][name]['interval']>=1 for name in bars[0] if name.startswith('mpris#')))
+
+    def test_default_and_unknown_presets(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(presets,'PREFERENCE',Path(temporary)/'selected.json'):
+            self.assertEqual(presets.current(),'mocha-pill')
+        for identity in ['../outside','', 'not-a-preset']:
+            if identity:
+                with self.assertRaises(ValueError):presets.render(identity)
+
+    def test_original_is_exact_saved_top_configuration(self):
+        bars,_=presets.render('original')
+        self.assertEqual(bars[0],json.loads((presets.PRESETS/'original-top.json').read_text()))
+
+    def test_all_css_parses_in_gtk3(self):
+        presets.validate_all()
+
+    def test_notification_adapter_alt_matches_preset_icons(self):
+        icons=presets.render('mocha-pill')[0][0]['custom/notifications']['format-icons']
+        for count,paused,expected in [(0,False,'empty'),(3,False,'pending'),(3,True,'paused')]:
+            def read(args,**kwargs):return str(paused).lower() if '--get-dnd' in args else str(count)
+            output=io.StringIO()
+            with patch.object(sys,'argv',['notifications']),patch.object(subprocess,'run',return_value=SimpleNamespace(returncode=0)),patch.object(subprocess,'check_output',side_effect=read),contextlib.redirect_stdout(output):
+                runpy.run_path(str(ROOT/'scripts/notifications'),run_name='notification_schema_test')
+            data=json.loads(output.getvalue())
+            self.assertEqual(data['alt'],expected)
+            self.assertIn(data['alt'],icons)
+            self.assertEqual(data['count'],count)
+        self.assertIn('unavailable',icons)
+
+    def test_selection_persists_and_restart_failure_rolls_back(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base=Path(temporary);binpath=base/'bin';binpath.mkdir()
+            script=binpath/'systemctl'
+            script.write_text("#!/usr/bin/python3\nimport os,sys\nfrom pathlib import Path\nflag=Path(os.environ['FAKE_SYSTEMCTL_FLAG'])\nif 'restart' in sys.argv and os.environ.get('FAKE_FAIL')=='1' and not flag.exists():\n flag.touch();sys.exit(1)\nsys.exit(0)\n")
+            script.chmod(0o700)
+            env={**os.environ,'XDG_CURRENT_DESKTOP':'niri','XDG_STATE_HOME':str(base/'state'),
+                 'PATH':str(binpath)+':'+os.environ['PATH'],'FAKE_SYSTEMCTL_FLAG':str(base/'failed')}
+            command=[sys.executable,str(ROOT/'scripts/waybar-preset')]
+            subprocess.run([*command,'set','floating-glass'],env=env,check=True,capture_output=True)
+            selected=subprocess.check_output([*command,'current'],env=env,text=True).strip()
+            self.assertEqual(selected,'floating-glass')
+            preference=base/'state/niri-rice/waybar-preset.json'
+            before=preference.read_bytes()
+            self.assertEqual(preference.stat().st_mode&0o777,0o600)
+            result=subprocess.run([*command,'set','mocha-pill'],env={**env,'FAKE_FAIL':'1'},capture_output=True)
+            self.assertNotEqual(result.returncode,0)
+            self.assertEqual(preference.read_bytes(),before)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)
