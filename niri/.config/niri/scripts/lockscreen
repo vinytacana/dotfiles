@@ -7,6 +7,7 @@ lock --preview PNG apenas renderiza uma imagem, sem bloquear nem autenticar.
 O cache vem do wallpaper-manager; indisponibilidade nunca impede o bloqueio.
 """
 import argparse
+import configparser
 import fcntl
 import hashlib
 import json
@@ -124,6 +125,16 @@ def gtk_environment():
 
 def validate_gtk():
     """Parse real GTK3 CSS and all GtkBuilder objects without starting gtklock."""
+    config = configparser.ConfigParser(interpolation=None)
+    try:
+        with (ROOT/'gtklock/config.ini').open() as source:
+            config.read_file(source)
+        for option in ['start-hidden', 'idle-hide']:
+            config.getboolean('main', option)
+        if config.getint('main', 'idle-timeout') < 1:
+            raise ValueError('idle-timeout precisa ser positivo')
+    except (configparser.Error, ValueError) as exc:
+        raise RuntimeError('config.ini inválido: '+str(exc)) from None
     import gi
     gi.require_version('Gtk', '3.0')
     from gi.repository import Gtk
@@ -157,14 +168,15 @@ def check():
     # --help-config termina antes de criar superfícies de sessão bloqueada.
     result = subprocess.run(['gtklock', '--help-config'], capture_output=True,
                             text=True, check=True, timeout=3)
-    for option in ['--layout', '--style', '--background', '--date-format']:
+    for option in ['--layout', '--style', '--background', '--date-format',
+                   '--start-hidden', '--idle-hide', '--idle-timeout']:
         if option not in result.stdout:
             raise RuntimeError('Opção ausente nesta versão do gtklock: '+option)
     validate_gtk()
     print('gtklock: executável, PAM existente, opções, CSS e GtkBuilder OK (sem autenticar).')
 
 
-def preview(destination):
+def preview(destination, state='auth'):
     # Prévia ESTÁTICA: nenhum grab, PAM ou ext-session-lock; não é um bloqueador.
     Gtk, provider, builder = validate_gtk()
     from gi.repository import Gdk
@@ -177,6 +189,12 @@ def preview(destination):
     window = Gtk.OffscreenWindow()
     window.set_default_size(1920, 1080)
     window.get_style_context().add_class('focused')
+    if state == 'rest':
+        window.get_style_context().add_class('hidden')
+    # Capture the requested endpoint, rather than a frame halfway through 300ms.
+    revealer = builder.get_object('body-revealer')
+    revealer.set_transition_duration(0)
+    revealer.set_reveal_child(state == 'auth')
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
     image = cached_background()
     if image:
@@ -185,13 +203,14 @@ def preview(destination):
         window.get_style_context().add_provider(wallpaper_css, Gtk.STYLE_PROVIDER_PRIORITY_USER+1)
     window.add(builder.get_object('window-box'))
     window.show_all()
-    window.set_focus(builder.get_object('input-field'))
+    if state == 'auth':
+        window.set_focus(builder.get_object('input-field'))
     while Gtk.events_pending():
         Gtk.main_iteration()
     destination = destination.expanduser().absolute()
     window.get_pixbuf().savev(str(destination), 'png', [], [])
     window.destroy()
-    print('Prévia estática (não bloqueia):', destination)
+    print('Prévia estática '+state+' (não bloqueia):', destination)
 
 
 def lock(force_gtklock=False):
@@ -243,8 +262,12 @@ def main():
     actions.add_argument('--status', action='store_true')
     actions.add_argument('--check', action='store_true', help='validar GTK, CSS e dependências sem bloquear')
     actions.add_argument('--preview', type=Path, metavar='PNG', help='renderizar prévia estática, sem bloquear')
+    parser.add_argument('--preview-state', choices=['rest', 'auth'],
+                        help='estado da prévia: repouso ou autenticação (não bloqueia)')
     parser.add_argument('command', nargs='?', choices=['background'])
     args = parser.parse_args()
+    if args.preview_state and not args.preview:
+        parser.error('--preview-state exige --preview PNG; nenhuma sessão foi bloqueada')
     if args.command:
         background()
     elif args.use_gtklock:
@@ -260,7 +283,7 @@ def main():
     elif args.check:
         check()
     elif args.preview:
-        preview(args.preview)
+        preview(args.preview, args.preview_state or 'auth')
     else:
         lock(args.gtklock)
 
