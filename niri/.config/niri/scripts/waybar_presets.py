@@ -40,6 +40,17 @@ def render(selected=None):
         # Same character width on both ends keeps transport controls stationary.
         top['mpris#track']['min-length'] = settings['track_chars']
         css += '\n'+(PRESETS/'common.css').read_text()+'\n'+(PRESETS/(selected+'.css')).read_text()
+    # Upgrade only entry points in the archived preset; keep its layout intact.
+    if selected == 'original':
+        top['modules-right'] = [name.replace('custom/settings', 'custom/control') for name in top['modules-right']]
+        top.pop('custom/settings', None)
+        baseline = json.loads((ROOT/'waybar.jsonc').read_text())[0]
+        top['custom/control'] = baseline['custom/control']
+        for name in ['network','bluetooth','battery']:
+            top[name]['on-click'] = baseline[name]['on-click']
+    uri = json.dumps((ROOT/'icons/control-center.svg').as_uri())
+    css += f"\nwindow#waybar.top #custom-control {{ background-image: url({uri}); background-size: 20px 20px; background-repeat: no-repeat; background-position: center; min-width: 22px; }}\n"
+    css += '#custom-control.open, window#waybar.top #custom-control.open { background-color: #45475a; box-shadow: inset 0 -2px #cba6f7; }\n'
     return bars, css
 
 

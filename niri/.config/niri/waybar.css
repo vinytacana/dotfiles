@@ -7,10 +7,10 @@ window#waybar.top { border: 1px solid #313244; }
 #workspaces button:hover { background: #45475a; color: #cdd6f4; }
 #window { margin-left: 10px; color: #bac2de; }
 #clock { color: #cba6f7; font-weight: bold; padding: 0 14px; margin: 3px 0; border-radius: 8px; }
-#cpu, #memory, #network, #pulseaudio, #bluetooth, #battery, #custom-notifications, #custom-settings, #tray, #custom-power { padding: 0 8px; margin: 3px 0; border-radius: 8px; }
-#clock:hover, #network:hover, #pulseaudio:hover, #bluetooth:hover, #custom-notifications:hover, #custom-settings:hover, #custom-power:hover { background-color: #313244; }
+#cpu, #memory, #network, #pulseaudio, #bluetooth, #battery, #custom-notifications, #custom-control, #tray, #custom-power { padding: 0 8px; margin: 3px 0; border-radius: 8px; }
+#clock:hover, #network:hover, #pulseaudio:hover, #bluetooth:hover, #custom-notifications:hover, #custom-control:hover, #custom-power:hover { background-color: #313244; }
 #custom-power { color: #b4befe; font-size: 19px; padding: 0 10px; margin-right: 3px; }
-#custom-settings, #bluetooth { font-size: 18px; color: #cba6f7; }
+#custom-control, #bluetooth { font-size: 18px; color: #cba6f7; }
 #memory { color: #bac2de; margin-right: 6px; }
 #battery { margin-left: 6px; }
 #battery.charging { color: #a6e3a1; }

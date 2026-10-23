@@ -1,0 +1,46 @@
+#!/usr/bin/python3
+"""Waybar state follows the existing GTK application's exported action, no polling."""
+import json
+import sys
+sys.dont_write_bytecode = True
+from gi.repository import Gio, GLib
+
+
+def main():
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    group = None
+    handlers = []
+    previous = None
+    def update(*_):
+        nonlocal previous
+        state = group.get_action_state('control-visible') if group else None
+        opened = bool(state and state.unpack())
+        if opened != previous:
+            print(json.dumps({'text': ' ', 'class': 'open' if opened else 'closed',
+                              'tooltip': 'Central de Controle'}, ensure_ascii=False), flush=True)
+            previous = opened
+    def clear():
+        nonlocal group
+        if group:
+            for handler in handlers: group.disconnect(handler)
+        handlers.clear()
+        group = None
+    def appeared(_bus, _name, owner):
+        nonlocal group
+        clear()
+        # Bind to this owner's unique name. A fresh GTK process has a fresh group.
+        group = Gio.DBusActionGroup.get(bus, owner, '/org/niri/Rice')
+        for signal in ['action-state-changed', 'action-added', 'action-removed']:
+            handlers.append(group.connect(signal, update))
+        group.list_actions()
+        update()
+    def vanished(*_):
+        clear()
+        update()
+    Gio.bus_watch_name_on_connection(bus, 'org.niri.Rice', Gio.BusNameWatcherFlags.NONE, appeared, vanished)
+    update()
+    GLib.MainLoop().run()
+
+
+if __name__ == '__main__':
+    main()

@@ -36,7 +36,7 @@ window#waybar.top #window { color: #a6adc8; padding: 0 10px; margin-left: 0; }
 window#waybar.top #cpu, window#waybar.top #memory,
 window#waybar.top #network, window#waybar.top #pulseaudio,
 window#waybar.top #bluetooth, window#waybar.top #battery,
-window#waybar.top #custom-notifications, window#waybar.top #custom-settings,
+window#waybar.top #custom-notifications, window#waybar.top #custom-control,
 window#waybar.top #custom-power {
     background: transparent; border: none; padding: 0 7px; margin: 0;
     border-radius: 11px; color: #cdd6f4;
@@ -47,13 +47,13 @@ window#waybar.top #clock {
     font-family: "UbuntuMono Nerd Font", monospace; font-size: 14px;
 }
 window#waybar.top #network, window#waybar.top #bluetooth,
-window#waybar.top #custom-notifications, window#waybar.top #custom-settings,
+window#waybar.top #custom-notifications, window#waybar.top #custom-control,
 window#waybar.top #custom-power { font-size: 17px; }
 window#waybar.top #custom-power { color: #b4befe; padding-right: 9px; }
 window#waybar.top #custom-system:hover, window#waybar.top #clock:hover,
 window#waybar.top #network:hover, window#waybar.top #pulseaudio:hover,
 window#waybar.top #bluetooth:hover, window#waybar.top #battery:hover,
-window#waybar.top #custom-notifications:hover, window#waybar.top #custom-settings:hover,
+window#waybar.top #custom-notifications:hover, window#waybar.top #custom-control:hover,
 window#waybar.top #custom-power:hover { background: #313244; }
 window#waybar.top #network.disconnected, window#waybar.top #pulseaudio.muted,
 window#waybar.top #battery.critical, window#waybar.top #custom-notifications.paused,

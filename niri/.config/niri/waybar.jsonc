@@ -57,8 +57,8 @@
       "format-wifi": "󰤨",
       "format-ethernet": "󰈀",
       "format-disconnected": "󰤭",
-      "tooltip-format": "{ifname} · {essid}\nSinal: {signalStrength}%\nClique: central de controle",
-      "on-click": "~/.config/niri/scripts/settings-hub control",
+      "tooltip-format": "{ifname} · {essid}\nSinal: {signalStrength}%\nClique: seção Wi-Fi",
+      "on-click": "~/.config/niri/scripts/settings-hub control wifi",
       "max-length": 3
     },
     "pulseaudio": {
@@ -75,8 +75,8 @@
       "format": "",
       "format-disabled": "",
       "format-off": "",
-      "on-click": "~/.config/niri/scripts/settings-hub control",
-      "tooltip-format": "Bluetooth · {status}\nClique: central de controle"
+      "on-click": "~/.config/niri/scripts/settings-hub control bluetooth",
+      "tooltip-format": "Bluetooth · {status}\nClique: seção Bluetooth"
     },
     "battery": {
       "bat": "BAT0",
@@ -87,7 +87,7 @@
         "critical": 10
       },
       "interval": 30,
-      "on-click": "~/.config/niri/scripts/settings-hub control",
+      "on-click": "~/.config/niri/scripts/settings-hub control battery",
       "format-icons": [
         "󰁺",
         "󰁼",
@@ -111,11 +111,6 @@
         "paused": "󰂛",
         "unavailable": "󰂛"
       }
-    },
-    "custom/settings": {
-      "format": "",
-      "tooltip-format": "Configurações do sistema",
-      "on-click": "~/.config/niri/scripts/settings-hub"
     },
     "custom/power": {
       "format": "⏻",
@@ -153,7 +148,7 @@
       "orientation": "horizontal",
       "modules": [
         "custom/notifications",
-        "custom/settings",
+        "custom/control",
         "custom/power"
       ]
     },
@@ -182,7 +177,7 @@
       "artist-len": 18,
       "tooltip-format": "{player} · {status}\n{title}\nArtista: {artist}\nÁlbum: {album}\nClique: abrir/focar player",
       "max-length": 26,
-      "format": "{player_icon}\u2002\u2002<b>{title}</b> <span foreground=\"#a6adc8\">· {artist}</span>",
+      "format": "{player_icon}  <b>{title}</b> <span foreground=\"#a6adc8\">· {artist}</span>",
       "on-click": "~/.config/niri/scripts/media-player",
       "on-click-right": "~/.config/niri/scripts/media-player",
       "min-length": 26,
@@ -246,6 +241,14 @@
       "min-length": 18,
       "max-length": 18,
       "align": 0.0
+    },
+    "custom/control": {
+      "exec": "~/.config/niri/scripts/control-indicator",
+      "return-type": "json",
+      "format": "{text}",
+      "restart-interval": 3,
+      "exec-on-event": false,
+      "on-click": "~/.config/niri/scripts/settings-hub control"
     }
   },
   {
