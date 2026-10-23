@@ -462,10 +462,11 @@ class Rice(Gtk.Application):
         action=args[0] if args else 'settings'
         if action=='close':
             for window in list(self.get_windows()):window.destroy()
-        elif action in ('spotlight','clipboard','switcher','switcher-back','control'):
+        elif action in ('spotlight','clipboard','switcher','switcher-back','control','power'):
             from rice_panels import ControlCenter, WindowSwitcher, ClipboardPanel
             from rice_launcher import Spotlight
-            factory={'control':ControlCenter,'switcher':WindowSwitcher,'switcher-back':WindowSwitcher,'clipboard':ClipboardPanel,'spotlight':Spotlight}[action]
+            from rice_power import PowerMenu
+            factory={'control':ControlCenter,'switcher':WindowSwitcher,'switcher-back':WindowSwitcher,'clipboard':ClipboardPanel,'spotlight':Spotlight,'power':PowerMenu}[action]
             if isinstance(self.popup,WindowSwitcher) and action.startswith('switcher'):
                 self.popup.cycle(-1 if action=='switcher-back' else 1)
             elif isinstance(self.popup,factory):self.popup.destroy()
@@ -491,7 +492,7 @@ class Rice(Gtk.Application):
                 self.settings.render_favorites()
             self.settings.show_all();self.settings.present()
         else:
-            command.printerr_literal('Use settings, favorites, calendar, control, switcher, clipboard, spotlight ou close\n')
+            command.printerr_literal('Use settings, favorites, calendar, control, power, switcher, clipboard, spotlight ou close\n')
             return 1
         return 0
 
