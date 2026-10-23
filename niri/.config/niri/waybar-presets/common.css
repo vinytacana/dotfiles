@@ -41,6 +41,8 @@ window#waybar.top #custom-power {
     background: transparent; border: none; padding: 0 7px; margin: 0;
     border-radius: 11px; color: #cdd6f4;
 }
+/* The speaker uses its own font metrics; keep room around the percentage. */
+window#waybar.top #pulseaudio { padding: 0 9px; }
 window#waybar.top #memory { color: #a6adc8; }
 window#waybar.top #clock {
     color: #b4befe; font-weight: 700; padding: 0 16px;

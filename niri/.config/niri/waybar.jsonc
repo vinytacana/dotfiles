@@ -62,7 +62,7 @@
       "max-length": 3
     },
     "pulseaudio": {
-      "format": " {volume}%",
+      "format": "<span font_family=\"Font Awesome 6 Free\" weight=\"900\" size=\"small\"></span>\u2002{volume}%",
       "format-muted": "󰝟",
       "on-click": "~/.config/niri/scripts/settings-hub control",
       "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
