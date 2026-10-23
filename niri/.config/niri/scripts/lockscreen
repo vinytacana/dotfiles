@@ -1,0 +1,273 @@
+#!/usr/bin/python3
+"""Lockscreen local ao Niri. Nunca trata senhas ou modifica PAM/GNOME.
+
+lock --gtklock testa o candidato sem trocar o padrão. Após validar manualmente
+o desbloqueio: lock --use-gtklock. Reversão: lock --use-swaylock.
+lock --preview PNG apenas renderiza uma imagem, sem bloquear nem autenticar.
+O cache vem do wallpaper-manager; indisponibilidade nunca impede o bloqueio.
+"""
+import argparse
+import fcntl
+import hashlib
+import json
+import locale
+import os
+from pathlib import Path
+import pwd
+import shutil
+import subprocess
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent.parent
+STATE = Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state'))/'niri-rice/lockscreen'
+RECIPE = '1920x1080-cover-blur18-dim22-v1'
+
+
+def atomic_write(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.'+path.name)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def wallpaper():
+    result = subprocess.run([str(ROOT/'scripts/wallpaper-manager'), 'current'],
+                            capture_output=True, text=True, check=True, timeout=3)
+    return Path(result.stdout.strip()).resolve(strict=True)
+
+
+def source_stamp(source):
+    info = source.stat()
+    return {'path': str(source), 'size': info.st_size,
+            'mtime_ns': info.st_mtime_ns, 'ctime_ns': info.st_ctime_ns,
+            'recipe': RECIPE}
+
+
+def cached_background():
+    """Cheap validity check for the lock path; never process images here."""
+    try:
+        metadata = json.loads((STATE/'background.json').read_text())
+        if metadata['source'] == source_stamp(wallpaper()) and (STATE/'background.png').is_file():
+            return STATE/'background.png'
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def background():
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (STATE/'background.lock').open('a') as guard:
+        fcntl.flock(guard, fcntl.LOCK_EX)
+        source = wallpaper()
+        stamp = source_stamp(source)
+        if cached_background():
+            print(STATE/'background.png')
+            return
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        fd, name = tempfile.mkstemp(dir=STATE, suffix='.png', prefix='.background-')
+        os.close(fd)
+        temporary = Path(name)
+        try:
+            # Redução antes do blur economiza CPU; sigma 9 equivale a ~18px finais.
+            # Limites evitam uso excessivo de memória em imagens muito grandes.
+            subprocess.run(['magick', '-limit', 'memory', '256MiB', '-limit', 'map', '512MiB',
+                            str(source)+'[0]', '-auto-orient', '-resize', '1920x1080^',
+                            '-gravity', 'center', '-extent', '1920x1080',
+                            '-resize', '50%', '-blur', '0x9', '-resize', '1920x1080!',
+                            '-background', '#1e1e2e', '-alpha', 'remove', '-alpha', 'off',
+                            '-fill', '#181825', '-colorize', '22%', '-strip', str(temporary)],
+                           check=True, timeout=35, capture_output=True)
+            if source_stamp(source) != stamp:
+                raise RuntimeError('Wallpaper mudou durante o processamento; tente novamente.')
+            temporary.chmod(0o600)
+            os.replace(temporary, STATE/'background.png')
+            atomic_write(STATE/'background.json', json.dumps(
+                {'source': stamp, 'sha256': digest}, indent=2).encode())
+        finally:
+            temporary.unlink(missing_ok=True)
+    print(STATE/'background.png')
+
+
+def backend():
+    try:
+        value = (STATE/'backend').read_text().strip()
+    except FileNotFoundError:
+        return 'swaylock'
+    if value not in {'swaylock', 'gtklock'}:
+        raise RuntimeError('Backend inválido. Restaure com lock --use-swaylock.')
+    return value
+
+
+def layout():
+    tree = ET.parse(ROOT/'gtklock/layout.ui')
+    account = pwd.getpwuid(os.getuid())
+    name = account.pw_gecos.split(',')[0].strip() or account.pw_name
+    tree.find(".//object[@id='user-label']/property[@name='label']").text = name
+    output = STATE/'layout.ui'
+    atomic_write(output, ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True))
+    return output
+
+
+def gtk_environment():
+    env = os.environ.copy()
+    # Escopo exclusivo do gtklock, sem exportação para a sessão ou systemd.
+    env.pop('GTK_THEME', None)
+    env.update(GDK_BACKEND='wayland', LC_ALL='pt_BR.UTF-8')
+    return env
+
+
+def validate_gtk():
+    """Parse real GTK3 CSS and all GtkBuilder objects without starting gtklock."""
+    import gi
+    gi.require_version('Gtk', '3.0')
+    from gi.repository import Gtk
+    if not Gtk.init_check()[0]:
+        raise RuntimeError('Sem acesso à sessão gráfica para validar o GtkBuilder.')
+    errors = []
+    provider = Gtk.CssProvider()
+    provider.connect('parsing-error', lambda _, section, error: errors.append(str(error)))
+    provider.load_from_path(str(ROOT/'gtklock/style.css'))
+    builder = Gtk.Builder.new_from_file(str(layout()))
+    required = {'window-box': Gtk.Box, 'body-revealer': Gtk.Revealer,
+                'body-grid': Gtk.Grid, 'input-label': Gtk.Label, 'input-field': Gtk.Entry,
+                'message-revealer': Gtk.Revealer, 'message-scrolled-window': Gtk.ScrolledWindow,
+                'message-box': Gtk.Box, 'unlock-button': Gtk.Button, 'error-label': Gtk.Label,
+                'warning-label': Gtk.Label, 'info-box': Gtk.Box, 'time-box': Gtk.Box,
+                'clock-label': Gtk.Label, 'date-label': Gtk.Label}
+    for name, kind in required.items():
+        if not isinstance(builder.get_object(name), kind):
+            errors.append('ID/tipo exigido pelo gtklock: '+name)
+    entry = builder.get_object('input-field')
+    if entry.get_visibility() or entry.get_input_purpose() != Gtk.InputPurpose.PASSWORD:
+        errors.append('O campo de senha precisa ser privado e mascarado.')
+    if errors:
+        raise RuntimeError('\n'.join(errors))
+    return Gtk, provider, builder
+
+
+def check():
+    if not shutil.which('gtklock') or not Path('/etc/pam.d/gtklock').is_file():
+        raise RuntimeError('Instale gtklock do Fedora antes do teste.')
+    # --help-config termina antes de criar superfícies de sessão bloqueada.
+    result = subprocess.run(['gtklock', '--help-config'], capture_output=True,
+                            text=True, check=True, timeout=3)
+    for option in ['--layout', '--style', '--background', '--date-format']:
+        if option not in result.stdout:
+            raise RuntimeError('Opção ausente nesta versão do gtklock: '+option)
+    validate_gtk()
+    print('gtklock: executável, PAM existente, opções, CSS e GtkBuilder OK (sem autenticar).')
+
+
+def preview(destination):
+    # Prévia ESTÁTICA: nenhum grab, PAM ou ext-session-lock; não é um bloqueador.
+    Gtk, provider, builder = validate_gtk()
+    from gi.repository import Gdk
+    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+    from datetime import datetime
+    now = datetime.now()
+    builder.get_object('clock-label').set_text(now.strftime('%H:%M'))
+    builder.get_object('date-label').set_text(now.strftime('%A, %d de %B'))
+    builder.get_object('input-field').set_editable(False)
+    window = Gtk.OffscreenWindow()
+    window.set_default_size(1920, 1080)
+    window.get_style_context().add_class('focused')
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+    image = cached_background()
+    if image:
+        wallpaper_css = Gtk.CssProvider()
+        wallpaper_css.load_from_data(('window { background-image: url("'+image.as_uri()+'"); }').encode())
+        window.get_style_context().add_provider(wallpaper_css, Gtk.STYLE_PROVIDER_PRIORITY_USER+1)
+    window.add(builder.get_object('window-box'))
+    window.show_all()
+    window.set_focus(builder.get_object('input-field'))
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    destination = destination.expanduser().absolute()
+    window.get_pixbuf().savev(str(destination), 'png', [], [])
+    window.destroy()
+    print('Prévia estática (não bloqueia):', destination)
+
+
+def lock(force_gtklock=False):
+    try:
+        selected = 'gtklock' if force_gtklock else backend()
+    except (OSError, ValueError, RuntimeError):
+        # Preferências corrompidas não podem desativar o bloqueio automático.
+        selected = 'swaylock'
+    image = cached_background()
+    if selected == 'gtklock':
+        if 'niri' not in os.environ.get('XDG_CURRENT_DESKTOP', '').split(':'):
+            raise RuntimeError('Este perfil gtklock é exclusivo da sessão Niri.')
+        if not shutil.which('gtklock'):
+            if force_gtklock:
+                raise RuntimeError('gtklock não instalado; o padrão permanece inalterado.')
+            selected = 'swaylock'  # Fallback somente ANTES de iniciar outro bloqueador.
+        else:
+            try:
+                prepared = layout()
+                for path in [ROOT/'gtklock/config.ini', ROOT/'gtklock/style.css']:
+                    if not path.is_file():
+                        raise FileNotFoundError(path)
+            except (OSError, ET.ParseError):
+                if force_gtklock:
+                    raise RuntimeError('Configuração gtklock indisponível; padrão inalterado.')
+                selected = 'swaylock'
+            else:
+                args = ['gtklock', '--daemonize', '--config', str(ROOT/'gtklock/config.ini'),
+                        '--style', str(ROOT/'gtklock/style.css'), '--layout', str(prepared)]
+                if image:
+                    args.extend(['--background', str(image)])
+                # O gtklock 4 sinaliza o pai somente após o evento locked do compositor.
+                # Não usar '&', timeout para matar o locker, nem fallback após iniciá-lo.
+                os.execvpe(args[0], args, gtk_environment())
+    args = ['swaylock', '-f', '-C', str(ROOT/'swaylock.conf')]
+    if image:
+        args.extend(['--image', str(image), '--scaling', 'fill'])
+    # swaylock -f também retorna só após estabelecer o bloqueio (swayidle -w).
+    os.execvp(args[0], args)
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument('--gtklock', action='store_true', help='bloquear com gtklock sem mudar o padrão; teste manual')
+    actions.add_argument('--use-gtklock', action='store_true', help='selecionar gtklock após validar desbloqueio manualmente')
+    actions.add_argument('--use-swaylock', action='store_true', help='restaurar o bloqueador anterior, sem bloquear agora')
+    actions.add_argument('--status', action='store_true')
+    actions.add_argument('--check', action='store_true', help='validar GTK, CSS e dependências sem bloquear')
+    actions.add_argument('--preview', type=Path, metavar='PNG', help='renderizar prévia estática, sem bloquear')
+    parser.add_argument('command', nargs='?', choices=['background'])
+    args = parser.parse_args()
+    if args.command:
+        background()
+    elif args.use_gtklock:
+        check()
+        atomic_write(STATE/'backend', b'gtklock\n')
+        print('gtklock selecionado para todas as chamadas do comando lock.')
+    elif args.use_swaylock:
+        atomic_write(STATE/'backend', b'swaylock\n')
+        print('swaylock restaurado. Nenhuma sessão foi bloqueada.')
+    elif args.status:
+        print('Bloqueador:', backend())
+        print('Fundo:', cached_background() or 'Mocha sólido (cache ainda indisponível)')
+    elif args.check:
+        check()
+    elif args.preview:
+        preview(args.preview)
+    else:
+        lock(args.gtklock)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        # Nunca registrar entrada de senha: o script não tem acesso a ela.
+        sys.exit('Lockscreen: '+str(error))

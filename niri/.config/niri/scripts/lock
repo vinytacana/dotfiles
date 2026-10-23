@@ -1,4 +1,6 @@
 #!/bin/sh
 set -eu
-# -f retorna somente depois de estabelecer o bloqueio (swayidle -w).
-exec swaylock -f -C "$HOME/.config/niri/swaylock.conf"
+# Entrada única: atalhos, rice-ui, swayidle e before-sleep.
+# O padrão continua swaylock até testar: lock --gtklock; depois lock --use-gtklock.
+# Reversão imediata: lock --use-swaylock. Consulte lock --help.
+exec "$HOME/.config/niri/scripts/lockscreen" "$@"

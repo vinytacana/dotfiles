@@ -1,0 +1,74 @@
+/* GTK3: o wallpaper derivado chega por --background, nunca por screenshot. */
+window {
+    background-color: #1e1e2e;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: #cdd6f4;
+    font-family: "Noto Sans", sans-serif;
+    font-size: 14px;
+}
+#window-box { padding: 36px; }
+window #clock-label,
+window.focused:not(.hidden) #clock-label {
+    color: #cdd6f4;
+    font-size: 128px;
+    font-weight: 300;
+    letter-spacing: -5px;
+    text-shadow: 0 4px 24px rgba(17, 17, 27, 0.45);
+}
+window #date-label,
+window.focused:not(.hidden) #date-label {
+    color: #b4befe;
+    font-size: 19px;
+    font-weight: 500;
+    margin-top: 2px;
+    text-shadow: 0 2px 12px rgba(17, 17, 27, 0.6);
+}
+#body-grid { margin-top: 60px; }
+#user-icon { color: #b4befe; margin-bottom: 10px; }
+#user-label { color: #cdd6f4; font-weight: 600; margin-bottom: 18px; }
+#input-field {
+    color: #cdd6f4;
+    background-color: rgba(24, 24, 37, 0.82);
+    background-image: none;
+    border: 1px solid rgba(180, 190, 254, 0.3);
+    border-radius: 24px;
+    min-height: 24px;
+    padding: 11px 20px;
+    caret-color: #b4befe;
+    box-shadow: 0 4px 16px rgba(17, 17, 27, 0.22);
+}
+#input-field:focus {
+    border-color: #b4befe;
+    box-shadow: 0 0 0 2px rgba(180, 190, 254, 0.15);
+}
+#input-field:disabled { color: #a6adc8; }
+#unlock-button {
+    background-image: none;
+    background-color: rgba(180, 190, 254, 0.16);
+    border: 1px solid rgba(180, 190, 254, 0.3);
+    border-radius: 24px;
+    color: #b4befe;
+    padding: 10px;
+    min-width: 24px;
+    min-height: 24px;
+    box-shadow: none;
+}
+#unlock-button:hover, #unlock-button:focus {
+    background-color: rgba(180, 190, 254, 0.28);
+    border-color: #b4befe;
+}
+#unlock-button:disabled { opacity: 0.5; }
+#error-label { color: #f38ba8; font-size: 13px; }
+#warning-label { color: #cba6f7; font-size: 13px; }
+#feedback-box { min-height: 36px; margin-top: 10px; }
+#message-scrolled-window, #message-box, #message-box viewport {
+    background-color: transparent;
+    border: none;
+}
+#message-box infobar {
+    background-color: rgba(24, 24, 37, 0.9);
+    border-radius: 12px;
+    color: #cdd6f4;
+}
