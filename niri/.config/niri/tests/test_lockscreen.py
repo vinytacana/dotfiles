@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -112,6 +113,122 @@ class Wallpaper(unittest.TestCase):
                 metadata = json.loads((lockscreen.STATE/'background.json').read_text())
                 self.assertEqual(metadata['source']['path'], str(original))
                 self.assertEqual(original.read_bytes(), original_bytes)
+
+
+class Presentation(unittest.TestCase):
+    """Real GTK widgets in an OffscreenWindow; never lock or invoke PAM.
+
+    Wake/hide calls model GTKLock 4's native presentation callbacks only.
+    Physical input routing, first-keystroke delivery and authentication remain
+    manual checks in GTKLock itself, not claims made by these simulations.
+    """
+    @classmethod
+    def setUpClass(cls):
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk, Gdk, GLib
+        if not Gtk.init_check()[0]:
+            raise unittest.SkipTest('É necessária uma sessão GTK para renderizar a prévia.')
+        cls.Gtk, cls.Gdk, cls.GLib = Gtk, Gdk, GLib
+
+    def setUp(self):
+        Gtk, provider, self.builder = lockscreen.validate_gtk()
+        Gtk.StyleContext.add_provider_for_screen(self.Gdk.Screen.get_default(), provider,
+                                                Gtk.STYLE_PROVIDER_PRIORITY_USER)
+        self.window = Gtk.OffscreenWindow()
+        self.window.set_default_size(1920, 1080)
+        self.window.get_style_context().add_class('focused')
+        self.window.get_style_context().add_class('hidden')
+        self.window.add(self.builder.get_object('window-box'))
+        self.revealer = self.builder.get_object('body-revealer')
+        self.entry = self.builder.get_object('input-field')
+        self.window.show_all()
+        self.settle(.05)
+        self.addCleanup(self.window.destroy)
+
+    def settle(self, duration):
+        until = time.monotonic() + duration
+        while time.monotonic() < until:
+            while self.Gtk.events_pending() and time.monotonic() < until:
+                self.Gtk.main_iteration_do(False)
+            time.sleep(.003)
+
+    def show_form(self):
+        self.window.get_style_context().remove_class('hidden')
+        self.revealer.set_reveal_child(True)
+        self.entry.grab_focus_without_selecting()
+
+    def hide_form(self):
+        self.window.get_style_context().add_class('hidden')
+        self.revealer.set_reveal_child(False)
+
+    def test_initial_state_and_native_animation_keep_entry_centered(self):
+        self.assertFalse(self.revealer.get_reveal_child())
+        self.assertFalse(self.revealer.get_child_revealed())
+        self.assertEqual(self.revealer.get_transition_type(), self.Gtk.RevealerTransitionType.SLIDE_UP)
+        self.assertEqual(self.revealer.get_transition_duration(), 300)
+        self.show_form()
+        for _ in range(14):
+            self.settle(.03)
+            if self.entry.get_allocated_width() > 1:
+                x, _ = self.entry.translate_coordinates(self.window, 0, 0)
+                self.assertAlmostEqual(x + self.entry.get_allocated_width()/2, 960, delta=.5)
+        self.assertTrue(self.revealer.get_child_revealed())
+        self.assertEqual(self.window.get_focus(), self.entry)
+        self.assertFalse(self.entry.get_visibility())
+        self.assertTrue(self.entry.get_property('caps-lock-warning'))
+
+    def test_fifteen_second_return_retains_fictitious_partial_input(self):
+        import configparser
+        config = configparser.ConfigParser(interpolation=None)
+        config.read(ROOT/'gtklock/config.ini')
+        self.assertTrue(config.getboolean('main', 'start-hidden'))
+        self.assertTrue(config.getboolean('main', 'idle-hide'))
+        timeout = config.getint('main', 'idle-timeout')
+        self.assertEqual(timeout, 15)
+        self.show_form(); self.settle(.4)
+        self.entry.set_text('texto-ficticio')
+        fired = []
+        def expire():
+            fired.append(True); self.hide_form(); return False
+        source = self.GLib.timeout_add_seconds(timeout, expire)
+        def remove_timer():
+            if self.GLib.MainContext.default().find_source_by_id(source):
+                self.GLib.source_remove(source)
+        self.addCleanup(remove_timer)
+        deadline = time.monotonic() + timeout + 2
+        while not fired and time.monotonic() < deadline:
+            self.settle(.05)
+        self.assertTrue(fired)
+        self.settle(.4)
+        self.assertFalse(self.revealer.get_child_revealed())
+        self.assertEqual(self.entry.get_text(), 'texto-ficticio')
+        self.show_form(); self.settle(.4)
+        self.assertEqual(self.entry.get_text(), 'texto-ficticio')
+        self.assertEqual(self.window.get_focus(), self.entry)
+        self.entry.set_text('')
+
+    def test_feedback_and_authentication_signals_remain_native(self):
+        import xml.etree.ElementTree as ET
+        self.show_form(); self.settle(.4)
+        self.builder.get_object('warning-label').set_text('Caps Lock ativado')
+        self.builder.get_object('error-label').set_text('Senha incorreta · demonstração')
+        self.settle(.05)
+        x, _ = self.entry.translate_coordinates(self.window, 0, 0)
+        self.assertAlmostEqual(x + self.entry.get_allocated_width()/2, 960, delta=.5)
+        self.assertTrue(self.builder.get_object('warning-label').get_mapped())
+        self.assertTrue(self.builder.get_object('error-label').get_mapped())
+        tree = ET.parse(ROOT/'gtklock/layout.ui')
+        handlers = {signal.get('name'): signal.get('handler') for signal in tree.findall(".//object[@id='input-field']/signal")}
+        self.assertEqual(handlers, {'icon-release': 'window_pw_toggle_vis', 'activate': 'window_pw_check'})
+        self.assertEqual(tree.find(".//object[@id='unlock-button']/signal").get('handler'), 'window_pw_check')
+
+    def test_preview_state_without_destination_cannot_lock(self):
+        # The parser must reject this before reaching the locker dispatcher.
+        result = subprocess.run([sys.executable, str(ROOT/'scripts/lockscreen'),
+                                 '--preview-state', 'rest'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('exige --preview', result.stderr)
 
 
 if __name__ == '__main__':
