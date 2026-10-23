@@ -182,7 +182,7 @@
       "artist-len": 18,
       "tooltip-format": "{player} · {status}\n{title}\nArtista: {artist}\nÁlbum: {album}\nClique: abrir/focar player",
       "max-length": 26,
-      "format": "{player_icon}  <b>{title}</b> <span foreground=\"#a6adc8\">· {artist}</span>",
+      "format": "{player_icon}\u2002\u2002<b>{title}</b> <span foreground=\"#a6adc8\">· {artist}</span>",
       "on-click": "~/.config/niri/scripts/media-player",
       "on-click-right": "~/.config/niri/scripts/media-player",
       "min-length": 26,
