@@ -81,4 +81,61 @@ class V4Tests(unittest.TestCase):
         source.write_text('later edit')
         result=subprocess.run([sys.executable,str(script),str(self.base)],capture_output=True,text=True)
         self.assertNotEqual(result.returncode,0);self.assertIn('Later changes',result.stderr);self.assertEqual(source.read_text(),'later edit')
+class LauncherLifecycle(unittest.TestCase):
+    """Closing a popup must cancel deferred work in a shared GTK application."""
+    @classmethod
+    def setUpClass(cls):
+        import gi
+        gi.require_version('Gtk','3.0')
+        from gi.repository import Gtk,Gio,GLib
+        if not Gtk.init_check()[0]:raise unittest.SkipTest('É necessária uma sessão GTK.')
+        cls.Gtk,cls.GLib=Gtk,GLib
+        cls.app=Gtk.Application(application_id='org.niri.Rice.LauncherTests',flags=Gio.ApplicationFlags.NON_UNIQUE)
+        cls.app.register(None)
+
+    def setUp(self):
+        import rice_launcher as launcher
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
+        base=Path(self.temp.name);(base/'launcher.json').write_text('{}')
+        for owner,key,value in [(launcher,'STATE',base),(launcher.Gio.AppInfo,'get_all',lambda:[]),
+                                (launcher.search,'search',lambda *args:[]),
+                                (launcher.search,'project_paths',lambda *args:[]),
+                                (launcher.search,'config',lambda:{})]:
+            mocked=patch.object(owner,key,value);mocked.start();self.addCleanup(mocked.stop)
+        self.window=launcher.Spotlight(self.app);self.addCleanup(self.window.destroy)
+
+    def settle(self,milliseconds):
+        loop=self.GLib.MainLoop()
+        self.GLib.timeout_add(milliseconds,lambda:(loop.quit(),False)[1])
+        loop.run()
+
+    def test_close_cancels_pending_search_before_widgets_are_rebuilt(self):
+        with patch.object(self.window,'results',wraps=self.window.results) as results:
+            self.window.debounce()
+            self.window.destroy()
+            self.settle(250)
+            results.assert_not_called()
+
+    def test_close_removes_index_watch_without_stopping_index_service(self):
+        import rice_launcher as launcher
+        sources=[];schedule=self.GLib.timeout_add
+        def track(*args):
+            source=schedule(*args);sources.append(source);return source
+        with patch.object(launcher.subprocess,'run') as command,patch.object(self.GLib,'timeout_add',side_effect=track):
+            self.window.index()
+            self.assertEqual(command.call_args.args[0][:4],['systemctl','--user','start','--no-block'])
+            source=sources[-1]
+            self.window.destroy()
+            self.assertIsNone(self.GLib.MainContext.default().find_source_by_id(source))
+            self.assertEqual(command.call_count,1)
+
+    def test_manual_refresh_does_not_lose_pending_search_on_close(self):
+        with patch.object(self.window,'results',wraps=self.window.results) as results:
+            self.window.debounce()
+            # Pinning a project or completing an index can refresh immediately.
+            self.window.results()
+            self.window.destroy()
+            self.settle(250)
+            results.assert_called_once()
+
 if __name__=='__main__':unittest.main(verbosity=2)
