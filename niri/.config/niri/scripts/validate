@@ -52,6 +52,7 @@ for name in ['clipboard-defaults.json','dock-defaults.json','swaync.json']:
     json.loads((root/name).read_text())
 print('V4 JSON: OK')
 run('Waybar presets JSON/GTK3/selection',[sys.executable,str(root/'tests/test_waybar_presets.py')])
+run('Calendar GTK layout/navigation/lifecycle',[sys.executable,str(root/'tests/test_calendar.py')])
 if shutil.which('gtklock'):
     run('Lockscreen GTK3 (sem bloquear)',[str(root/'scripts/lock'),'--check'])
 run('Lockscreen cache/fallback regressions',[sys.executable,str(root/'tests/test_lockscreen.py')])
