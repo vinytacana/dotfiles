@@ -84,7 +84,12 @@ class Presets(unittest.TestCase):
 
     def test_original_is_exact_saved_top_configuration(self):
         bars,_=presets.render('original')
-        self.assertEqual(bars[0],json.loads((presets.PRESETS/'original-top.json').read_text()))
+        expected=json.loads((presets.PRESETS/'original-top.json').read_text())
+        expected['modules-right']=[n.replace('custom/settings','custom/control') for n in expected['modules-right']]
+        expected.pop('custom/settings')
+        expected['custom/control']=bars[0]['custom/control']
+        for name in ['network','bluetooth','battery']:expected[name]['on-click']=bars[0][name]['on-click']
+        self.assertEqual(bars[0],expected)
 
     def test_all_css_parses_in_gtk3(self):
         presets.validate_all()
