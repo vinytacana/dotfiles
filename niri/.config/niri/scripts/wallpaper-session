@@ -1,4 +1,7 @@
 #!/bin/sh
 set -eu
 image=$("$HOME/.config/niri/scripts/wallpaper-manager" current)
+# Pré-processamento independente: falhas de blur não interrompem o wallpaper.
+# O serviço é encerrado com a sessão; não há um segundo swaybg.
+systemctl --user restart --no-block niri-rice-lock-background.service || true
 exec /usr/bin/swaybg -i "$image" -m fill
