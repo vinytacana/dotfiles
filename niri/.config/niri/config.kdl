@@ -95,11 +95,7 @@ window-rule {
     default-column-width { fixed 960; }
     default-window-height { fixed 700; }
 }
-layer-rule {
-    match namespace="^niri-calendar$"
-    geometry-corner-radius 16
-    shadow { on; softness 20; spread 0; offset x=0 y=4; color "#00000055"; }
-}
+// Calendar card owns its shadow; its transparent dismissal surface covers the output.
 // Blur leve apenas enquanto o menu de energia estiver aberto.
 layer-rule {
     match namespace="^niri-power$"

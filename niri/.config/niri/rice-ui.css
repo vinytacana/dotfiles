@@ -2,7 +2,6 @@ window, dialog { background: #1e1e2e; color: #cdd6f4; font-family: Sans; font-si
 headerbar { background: #181825; color: #cdd6f4; border-bottom: 1px solid #313244; box-shadow: none; }
 headerbar .title { color: #cba6f7; }
 headerbar .subtitle { color: #a6adc8; }
-#calendar-panel { border: 1px solid #585b70; border-radius: 16px; }
 .page-title { font-size: 24px; font-weight: bold; color: #cba6f7; margin-bottom: 8px; }
 .section-title { font-size: 17px; font-weight: bold; color: #cba6f7; }
 .muted { color: #a6adc8; font-size: 13px; }
@@ -20,8 +19,6 @@ row:selected { background: #45475a; }
 .favorite-card { background: #181825; border: 1px solid #313244; border-radius: 10px; padding: 8px; }
 .selected-favorite { border-color: #cba6f7; }
 .favorite-card button { padding: 5px 8px; }
-.day { border-radius: 8px; }
-.today { background: #cba6f7; color: #1e1e2e; font-weight: bold; }
 scale trough { background: #45475a; min-height: 6px; border-radius: 6px; }
 scale highlight { background: #cba6f7; }
 scale slider { background: #cba6f7; border: none; min-width: 16px; min-height: 16px; }
@@ -41,6 +38,40 @@ button image { margin-right: 6px; }
 .control-center-card scale { padding: 2px 0; margin: 1px 0; }
 .control-center-card .status-card { padding: 8px; }
 .control-section { background: rgba(24,24,37,0.9); border: 1px solid #313244; border-radius: 12px; padding: 9px; }
+/* Mocha Calendar: transparent dismissal surface, one compact card under clock. */
+#calendar-overlay { background: transparent; }
+.calendar-card {
+    background: #1e1e2e; border: 1px solid rgba(166,173,200,0.16);
+    border-radius: 18px; padding: 18px;
+    box-shadow: 0 6px 20px rgba(17,17,27,0.32);
+    font-family: "Noto Sans", sans-serif; font-size: 13px;
+}
+.calendar-card .calendar-month { color: #cdd6f4; font-size: 19px; font-weight: 600; }
+.calendar-card .calendar-date { color: #a6adc8; font-size: 11px; }
+.calendar-card button {
+    background: transparent; background-image: none; color: #cdd6f4;
+    border: 1px solid transparent; border-radius: 10px; padding: 0;
+    outline-width: 0; box-shadow: none;
+    transition: background-color 120ms ease-in-out, color 120ms ease-in-out;
+}
+.calendar-card button:hover { background: #313244; border-color: transparent; }
+.calendar-card button:focus { border-color: rgba(203,166,247,0.65); }
+.calendar-card .calendar-navigation { min-width: 28px; min-height: 28px; color: #a6adc8; }
+.calendar-card .calendar-navigation:hover { color: #cba6f7; }
+.calendar-card button image { margin: 0; -gtk-icon-shadow: none; }
+.calendar-card .calendar-weekday { color: #a6adc8; font-size: 10px; font-weight: 600; padding-bottom: 6px; }
+.calendar-card .calendar-weekday.weekend { color: #9399b2; }
+.calendar-card .calendar-day { font-size: 13px; font-weight: 400; min-width: 32px; min-height: 30px; }
+.calendar-card .calendar-day.weekend { color: #bac2de; }
+.calendar-card .calendar-day.outside-month { color: #6c7086; }
+.calendar-card .calendar-day.selected { background: #313244; color: #cba6f7; font-weight: 600; }
+.calendar-card .calendar-day.today { background: #cba6f7; color: #1e1e2e; font-weight: 700; }
+.calendar-card .calendar-day.today:hover { background: #b4befe; }
+.calendar-card .calendar-day.today:focus { border-color: transparent; }
+.calendar-card separator { background: rgba(166,173,200,0.14); min-height: 1px; margin: 12px 0 8px; }
+.calendar-card .calendar-footer { padding: 5px 7px; color: #a6adc8; font-size: 12px; min-height: 22px; }
+.calendar-card .calendar-footer image { margin-right: 5px; }
+.calendar-card .calendar-footer:hover { color: #cba6f7; }
 /* Menu de energia sob demanda; o compositor aplica blur só nesta superfície. */
 #rice-power-overlay { background: rgba(30,30,46,0.82); }
 .power-menu-card { background: transparent; border: none; padding: 0; box-shadow: none; }

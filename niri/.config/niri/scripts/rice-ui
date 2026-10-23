@@ -19,7 +19,8 @@ except locale.Error:
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('GtkLayerShell', '0.1')
-from gi.repository import Gtk, Gdk, Gio, GLib, GtkLayerShell
+gi.require_version('Pango', '1.0')
+from gi.repository import Gtk, Gdk, Gio, GLib, GtkLayerShell, Pango
 GLib.set_prgname('org.niri.Rice')
 from rice_common import ROOT, STATE, favorites, save_favorites, desktop, appearance, write_json, reload_bar, run, start_desktop, open_or_focus
 
@@ -33,92 +34,198 @@ def query(args):
         return 'Indisponível'
 
 
-from rice_widgets import label, button, async_update, app_image
+from rice_widgets import label, button, async_update, app_image, Popup
 
 
-class CalendarWindow(Gtk.ApplicationWindow):
+class CalendarWindow(Popup):
+    """Compact monthly popover; shares the rice's outside-click surface."""
     def __init__(self, app):
-        super().__init__(application=app, title='Calendário do Niri')
-        self.app = app
-        self.set_name('calendar-panel')
-        self.set_decorated(False)
-        GtkLayerShell.init_for_window(self)
+        super().__init__(app, 'Calendário do Niri', width=360)
+        self.set_name('calendar-overlay')
         GtkLayerShell.set_namespace(self, 'niri-calendar')
-        GtkLayerShell.set_layer(self, GtkLayerShell.Layer.TOP)
-        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.TOP, True)
-        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.TOP, 48)
-        GtkLayerShell.set_keyboard_mode(self, GtkLayerShell.KeyboardMode.ON_DEMAND)
-        GtkLayerShell.set_exclusive_zone(self, 0)
-        self.set_default_size(370, 360)
-        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        outer.set_border_width(18)
-        self.add(outer)
+        # Include the bar's area once: exclusive_zone=0 would add its inset again.
+        GtkLayerShell.set_exclusive_zone(self, -1)
+        self.panel.get_style_context().add_class('calendar-card')
+        self.panel.set_spacing(0)
+        self.panel.set_valign(Gtk.Align.START)
+        self.panel.set_margin_start(12)
+        self.panel.set_margin_end(12)
+        from waybar_presets import profiles, current
+        profile = profiles()[current()]
+        self.panel.set_margin_top(profile.get('top', 6) + profile.get('height', 38) + 10)
+        monitor = GtkLayerShell.get_monitor(self) or Gdk.Display.get_default().get_monitor(0)
+        width = monitor.get_geometry().width
+        self.panel.set_size_request(min(360, width - 24), -1)
+        self.current_day = datetime.date.today()
+        self.selected = self.current_day
+        self.year, self.month = self.selected.year, self.selected.month
+        self.midnight_source = 0
         heading = Gtk.Box(spacing=8)
-        self.month_title = label('', 'section-title')
-        heading.pack_start(button('‹', lambda: self.navigate(-1)), False, False, 0)
-        heading.pack_start(self.month_title, True, True, 0)
-        heading.pack_start(button('›', lambda: self.navigate(1)), False, False, 0)
-        heading.pack_start(button('×', self.destroy), False, False, 0)
-        outer.pack_start(heading, False, False, 0)
-        self.grid = Gtk.Grid(column_homogeneous=True, row_homogeneous=True, column_spacing=4, row_spacing=4)
-        outer.pack_start(self.grid, True, True, 0)
+        titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.month_title = Gtk.Label(xalign=0)
+        self.month_title.get_style_context().add_class('calendar-month')
+        self.date_title = Gtk.Label(xalign=0)
+        self.date_title.get_style_context().add_class('calendar-date')
+        for title in [self.month_title, self.date_title]:
+            title.set_ellipsize(Pango.EllipsizeMode.END)
+            title.set_single_line_mode(True)
+            titles.pack_start(title, False, False, 0)
+        heading.pack_start(titles, True, True, 0)
+        self.previous_button = self.navigation_button('go-previous-symbolic', 'Mês anterior · Page Up', -1)
+        self.next_button = self.navigation_button('go-next-symbolic', 'Próximo mês · Page Down', 1)
+        heading.pack_start(self.previous_button, False, False, 0)
+        heading.pack_start(self.next_button, False, False, 0)
+        self.panel.pack_start(heading, False, False, 0)
+        self.grid = Gtk.Grid(column_homogeneous=True, column_spacing=2, row_spacing=2)
+        self.grid.set_margin_top(16)
+        self.panel.pack_start(self.grid, False, False, 0)
+        self.panel.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
         footer = Gtk.Box(spacing=8)
-        footer.pack_start(button('Hoje', self.today, 'go-home-symbolic'), True, True, 0)
-        footer.pack_start(button('Abrir Calendário', lambda: self.app.safe(lambda: start_desktop('org.gnome.Calendar.desktop')), 'x-office-calendar-symbolic'), True, True, 0)
-        outer.pack_start(footer, False, False, 0)
-        self.connect('key-press-event', self.key)
-        # Layer surfaces can receive an initial focus-out before their first map.
-        # Only a real focus transition should dismiss the popup.
-        self.had_focus = False
+        self.today_button = button('Hoje', self.today, 'view-refresh-symbolic')
+        self.today_button.get_style_context().add_class('calendar-footer')
+        self.today_button.set_tooltip_text('Voltar para hoje · Home')
+        footer.pack_start(self.today_button, False, False, 0)
+        self.open_button = button('Calendário', lambda: self.app.safe(self.open_calendar), 'x-office-calendar-symbolic')
+        self.open_button.get_style_context().add_class('calendar-footer')
+        self.open_button.set_sensitive(desktop('org.gnome.Calendar.desktop') is not None)
+        self.open_button.set_tooltip_text('Abrir GNOME Calendar')
+        footer.pack_end(self.open_button, False, False, 0)
+        self.panel.pack_start(footer, False, False, 0)
         self.connect('focus-in-event', self.on_focus_in)
-        self.connect('focus-out-event', self.on_focus_out)
-        self.today()
+        self.connect('map', lambda *_: self.focus_selected())
+        self.connect('destroy', self.cleanup)
+        self.render()
+        self.schedule_midnight()
+
+    @staticmethod
+    def date_text(date):
+        weekdays = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
+        return f'{weekdays[date.weekday()]}, {date.day} de {MONTHS[date.month-1].lower()} de {date.year}'
+
+    def navigation_button(self, icon, title, delta):
+        item = Gtk.Button.new_from_icon_name(icon, Gtk.IconSize.MENU)
+        item.get_style_context().add_class('calendar-navigation')
+        item.set_valign(Gtk.Align.CENTER)
+        item.set_tooltip_text(title)
+        item.get_accessible().set_name(title)
+        item.connect('clicked', lambda *_: self.navigate(delta))
+        return item
 
     def on_focus_in(self, *_):
-        self.had_focus = True
+        if self.current_day != datetime.date.today():
+            self.refresh_day()
+            self.schedule_midnight()
         return False
 
-    def on_focus_out(self, *_):
-        if self.had_focus:
-            self.destroy()
+    def cleanup(self, *_):
+        if self.midnight_source:
+            GLib.source_remove(self.midnight_source)
+            self.midnight_source = 0
+
+    def schedule_midnight(self):
+        self.cleanup()
+        tomorrow = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time())
+        seconds = max(1, int(tomorrow.timestamp() - datetime.datetime.now().timestamp()) + 1)
+        self.midnight_source = GLib.timeout_add_seconds(seconds, self.on_midnight)
+
+    def on_midnight(self):
+        self.midnight_source = 0
+        self.refresh_day()
+        self.schedule_midnight()
         return False
+
+    def refresh_day(self, now=None):
+        previous = self.current_day
+        self.current_day = now or datetime.date.today()
+        if self.selected == previous:
+            self.selected = self.current_day
+            self.year, self.month = self.selected.year, self.selected.month
+        self.render()
 
     def today(self):
-        now = datetime.date.today()
-        self.year, self.month = now.year, now.month
+        self.current_day = datetime.date.today()
+        self.select(self.current_day)
+
+    def select(self, date, focus=True):
+        self.selected = date
+        self.year, self.month = date.year, date.month
         self.render()
+        if focus:
+            self.focus_selected()
+
+    def focus_selected(self):
+        if self.alive and self.selected in self.cells:
+            self.cells[self.selected].grab_focus()
+
+    def open_calendar(self):
+        open_or_focus('org.gnome.Calendar.desktop')
+        self.destroy()
 
     def navigate(self, delta):
         index = self.year * 12 + self.month - 1 + delta
-        self.year, zero = divmod(index, 12)
-        self.month = zero + 1
-        self.render()
+        year, zero = divmod(index, 12)
+        if 1 <= year <= 9998:
+            month = zero + 1
+            day = min(self.selected.day, calendar.monthrange(year, month)[1])
+            self.select(datetime.date(year, month, day), focus=False)
 
-    def key(self, _widget, event):
-        if event.keyval == Gdk.KEY_Escape:
-            self.destroy()
-            return True
+    def escape(self, widget, event):
         if event.keyval in (Gdk.KEY_Page_Up, Gdk.KEY_Page_Down):
             self.navigate(-1 if event.keyval == Gdk.KEY_Page_Up else 1)
+            self.focus_selected()
             return True
-        return False
+        offsets = {Gdk.KEY_Left: -1, Gdk.KEY_Right: 1, Gdk.KEY_Up: -7, Gdk.KEY_Down: 7}
+        if event.keyval in offsets:
+            self.select(self.selected + datetime.timedelta(days=offsets[event.keyval]))
+            return True
+        if event.keyval in (Gdk.KEY_Home, Gdk.KEY_KP_Home):
+            self.today()
+            return True
+        return super().escape(widget, event)
 
     def render(self):
         for child in self.grid.get_children():
             self.grid.remove(child)
         self.month_title.set_text(f'{MONTHS[self.month-1]} {self.year}')
-        for column, day in enumerate(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']):
-            self.grid.attach(label(day, 'muted'), column, 0, 1, 1)
-        now = datetime.date.today()
-        weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(self.year, self.month)
-        for row, week in enumerate(weeks, 1):
-            for col, day in enumerate(week):
-                cell = Gtk.Label(label=str(day) if day else '')
-                cell.set_size_request(40, 34)
-                cell.get_style_context().add_class('day')
-                if day and datetime.date(self.year, self.month, day) == now:
-                    cell.get_style_context().add_class('today')
-                self.grid.attach(cell, col, row, 1, 1)
+        self.date_title.set_text(self.date_text(self.current_day))
+        self.date_title.set_tooltip_text(self.date_text(self.current_day))
+        self.cells = {}
+        for column, day in enumerate(['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']):
+            name = Gtk.Label(label=day, xalign=0.5)
+            name.get_style_context().add_class('calendar-weekday')
+            if column >= 5:
+                name.get_style_context().add_class('weekend')
+            self.grid.attach(name, column, 0, 1, 1)
+        first = datetime.date(self.year, self.month, 1)
+        start = first - datetime.timedelta(days=first.weekday())
+        # Six rows avoid resizing/jumps when navigating between months.
+        for index in range(42):
+            date = start + datetime.timedelta(days=index)
+            cell = Gtk.Button(label=str(date.day))
+            cell.set_size_request(34, 32)
+            cell.set_halign(Gtk.Align.CENTER)
+            cell.set_valign(Gtk.Align.CENTER)
+            style = cell.get_style_context()
+            style.add_class('calendar-day')
+            if date.month != self.month:
+                style.add_class('outside-month')
+            if date.weekday() >= 5:
+                style.add_class('weekend')
+            if date == self.current_day:
+                style.add_class('today')
+            if date == self.selected:
+                style.add_class('selected')
+            cell.set_can_focus(date == self.selected)
+            description = self.date_text(date)
+            if date == self.current_day:
+                description += ' · Hoje'
+            if date == self.selected:
+                description += ' · Selecionado'
+            cell.get_accessible().set_name(description)
+            cell.set_tooltip_text(self.date_text(date))
+            cell.connect('clicked', lambda _, value=date: self.select(value))
+            self.cells[date] = cell
+            self.grid.attach(cell, index % 7, index // 7 + 1, 1, 1)
         self.grid.show_all()
 
 
