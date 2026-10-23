@@ -36,7 +36,7 @@ print('Alacritty TOML: OK')
 run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
 for name in ['lock','idle','mako-session','settings-hub']: run(name,['sh','-n',str(root/'scripts'/name)])
 for name in ['wallpaper-session']: run(name,['sh','-n',str(root/'scripts'/name)])
-for name in ['dock-app','dock-mode','rice-ui','rice_common.py','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py']:
+for name in ['dock-app','dock-mode','rice-ui','rice_common.py','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py','lockscreen']:
     try:
         compile((root/'scripts'/name).read_text(),str(root/'scripts'/name),'exec')
         print(f'{name}: OK')
@@ -51,6 +51,9 @@ for p in [Path('/usr/share/wayland-sessions/niri.desktop'),Path('/usr/share/wayl
 for name in ['clipboard-defaults.json','dock-defaults.json','swaync.json']:
     json.loads((root/name).read_text())
 print('V4 JSON: OK')
+if shutil.which('gtklock'):
+    run('Lockscreen GTK3 (sem bloquear)',[str(root/'scripts/lock'),'--check'])
+run('Lockscreen cache/fallback regressions',[sys.executable,str(root/'tests/test_lockscreen.py')])
 run('V4 privacy/parser/index regressions',[sys.executable,str(root/'tests/test_v4.py')])
 if shutil.which('swaync'):
     run('SwayNC GTK4 CSS',[sys.executable,'-c',"import gi,sys;gi.require_version('Gtk','4.0');from gi.repository import Gtk;p=Gtk.CssProvider();errors=[];p.connect('parsing-error',lambda _,section,error:errors.append(str(error)));p.load_from_path(sys.argv[1]);print('\\n'.join(errors));sys.exit(bool(errors))",str(root/'swaync.css')])
