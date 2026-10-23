@@ -100,6 +100,11 @@ layer-rule {
     geometry-corner-radius 16
     shadow { on; softness 20; spread 0; offset x=0 y=4; color "#00000055"; }
 }
+// Blur leve apenas enquanto o menu de energia estiver aberto.
+layer-rule {
+    match namespace="^niri-power$"
+    background-effect { xray false; blur true; }
+}
 workspace "1"
 workspace "2"
 workspace "3"
@@ -150,6 +155,7 @@ binds {
     Mod+Ctrl+D hotkey-overlay-title="Spotlight" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub spotlight"; }
     Mod+Shift+C hotkey-overlay-title="Histórico de cópia" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub clipboard"; }
     Mod+Ctrl+Comma hotkey-overlay-title="Central de controle" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub control"; }
+    Mod+Escape hotkey-overlay-title="Menu de energia" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub power"; }
     Mod+O { toggle-overview; }
     Mod+Tab { focus-workspace-previous; }
     Mod+BracketLeft { consume-or-expel-window-left; }

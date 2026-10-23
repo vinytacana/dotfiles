@@ -24,7 +24,8 @@
       "battery",
       "custom/notifications",
       "custom/settings",
-      "tray"
+      "tray",
+      "custom/power"
     ],
     "niri/workspaces": {
       "format": "{name}",
@@ -95,6 +96,11 @@
       "format": "",
       "tooltip-format": "Configurações do sistema",
       "on-click": "~/.config/niri/scripts/settings-hub"
+    },
+    "custom/power": {
+      "format": "⏻",
+      "tooltip-format": "Menu de energia · Super+Esc",
+      "on-click": "~/.config/niri/scripts/settings-hub power"
     },
     "tray": {
       "spacing": 8,
