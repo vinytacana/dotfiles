@@ -18,6 +18,47 @@ import waybar_presets as presets
 
 
 class Presets(unittest.TestCase):
+    def test_media_layout_is_fixed_and_ordered(self):
+        for identity in presets.profiles():
+            if identity=='original':continue
+            top=presets.render(identity)[0][0]
+            self.assertEqual(top['group/media']['modules'],['custom/media-idle','mpris#track','mpris#previous','mpris#play','mpris#next'])
+            track=top['mpris#track']
+            self.assertEqual(track['min-length'],track['max-length'])
+            self.assertIn('{album}',track['tooltip-format'])
+            self.assertFalse(track['enable-tooltip-len-limits'])
+            self.assertIn('#1db954',track['player-icons']['spotify'])
+            self.assertEqual(len([n for n in top if n.startswith('mpris#')]),4)
+            self.assertNotIn('interval',top['custom/media-idle'])
+            for name in ['previous','play','next']:
+                module=top['mpris#'+name]
+                self.assertEqual(module['player'],track['player'])
+                self.assertGreaterEqual(module['interval'],1)
+
+    def test_media_placeholder_states(self):
+        placeholder=runpy.run_path(str(ROOT/'scripts/media-idle'))['placeholder']
+        for status in ['Playing','Paused']:
+            self.assertEqual(placeholder(True,['spotify'],status)['text'],'')
+        idle=placeholder(True,[],'Paused')
+        stopped=placeholder(True,['spotify'],'Stopped')
+        unavailable=placeholder(False,[],None)
+        self.assertIn('Nada tocando',idle['text'])
+        self.assertEqual(idle['class'],'idle')
+        self.assertEqual(stopped['class'],'stopped')
+        self.assertIn('metadados ocultos',stopped['tooltip'])
+        self.assertEqual(unavailable['class'],'unavailable')
+
+    def test_idle_player_reuses_desktop_focus_and_launch(self):
+        spotify=runpy.run_path(str(ROOT/'scripts/media-player'))['spotify']
+        with patch.dict(spotify.__globals__,{'desktop':lambda identity:identity=='com.spotify.Client.desktop','open_or_focus':lambda identity:chosen.append(identity)}):
+            chosen=[]
+            spotify()
+            self.assertEqual(chosen,['com.spotify.Client.desktop'])
+        with patch.dict(spotify.__globals__,{'desktop':lambda identity:identity=='spotify.desktop','open_or_focus':lambda identity:chosen.append(identity)}):
+            chosen=[]
+            spotify()
+            self.assertEqual(chosen,['spotify.desktop'])
+
     def test_calendar_and_dock_preserved_in_every_preset(self):
         baseline=json.loads((ROOT/'waybar.jsonc').read_text())
         for identity in presets.profiles():

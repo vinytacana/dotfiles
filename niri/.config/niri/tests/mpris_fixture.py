@@ -3,12 +3,13 @@
 Usage: python3 mpris_fixture.py /tmp/private-directory/state.json
 It exits after 90 seconds or SIGTERM. The real players are not paused/modified.
 """
+import argparse
 import json
 from pathlib import Path
 import signal
 import sys
 sys.dont_write_bytecode=True
-from gi.repository import Gio,GLib
+from gi.repository import Gio,GLib,GLibUnix
 
 XML='''<node>
 <interface name="org.mpris.MediaPlayer2">
@@ -29,19 +30,28 @@ XML='''<node>
 <property name="CanGoNext" type="b" access="read"/><property name="CanGoPrevious" type="b" access="read"/>
 <property name="CanPlay" type="b" access="read"/><property name="CanPause" type="b" access="read"/>
 <property name="CanSeek" type="b" access="read"/><property name="CanControl" type="b" access="read"/>
+</interface>
+<interface name="org.niri.Rice.MprisFixture">
+<method name="SetMetadata"><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
 </interface></node>'''
 
 
 def main():
-    state=Path(sys.argv[1]);state.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('state',type=Path)
+    parser.add_argument('--name',default='rice_test',choices=['rice_test','rice_test2'])
+    parser.add_argument('--duration',type=int,default=90)
+    args=parser.parse_args()
+    state=args.state;state.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     loop=GLib.MainLoop();bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
     calls=[];status='Playing'
     root={'CanQuit':GLib.Variant('b',True),'CanRaise':GLib.Variant('b',False),'HasTrackList':GLib.Variant('b',False),
-          'Identity':GLib.Variant('s','Rice test fixture'),'DesktopEntry':GLib.Variant('s','rice_test'),
+          'Identity':GLib.Variant('s','Rice test fixture'),'DesktopEntry':GLib.Variant('s',args.name),
           'SupportedUriSchemes':GLib.Variant('as',[]),'SupportedMimeTypes':GLib.Variant('as',[])}
     player={'Metadata':GLib.Variant('a{sv}',{'mpris:trackid':GLib.Variant('o','/org/niri/test/track'),
             'xesam:title':GLib.Variant('s',('Título de teste muito longo <&> 日本語 · '*20)+'$(inert)'),
-            'xesam:artist':GLib.Variant('as',['Artista de teste '+('Longo '*20)]),'mpris:length':GLib.Variant('x',90000000)}),
+            'xesam:artist':GLib.Variant('as',['Artista de teste '+('Longo '*20)]),'xesam:album':GLib.Variant('s','Álbum <&> teste'),
+            'mpris:length':GLib.Variant('x',90000000)}),
             'LoopStatus':GLib.Variant('s','None'),'Rate':GLib.Variant('d',1),'Shuffle':GLib.Variant('b',False),
             'Volume':GLib.Variant('d',1),'Position':GLib.Variant('x',0),'MinimumRate':GLib.Variant('d',1),
             'MaximumRate':GLib.Variant('d',1),'CanGoNext':GLib.Variant('b',True),'CanGoPrevious':GLib.Variant('b',True),
@@ -54,19 +64,28 @@ def main():
     def method(connection,sender,path,interface,name,parameters,invocation):
         nonlocal status
         calls.append(name)
+        changes={}
+        if name=='SetMetadata':
+            title,artist,album=parameters.unpack()
+            values=player['Metadata'].unpack()
+            values={key:GLib.Variant('o' if key=='mpris:trackid' else ('x' if key=='mpris:length' else ('as' if key=='xesam:artist' else 's')),value) for key,value in values.items()}
+            values.update({'xesam:title':GLib.Variant('s',title),'xesam:artist':GLib.Variant('as',[artist]),'xesam:album':GLib.Variant('s',album)})
+            player['Metadata']=GLib.Variant('a{sv}',values)
+            changes['Metadata']=player['Metadata']
         if name=='PlayPause':status='Paused' if status=='Playing' else 'Playing'
         if name in ['Play','Pause','Stop']:status={'Play':'Playing','Pause':'Paused','Stop':'Stopped'}[name]
+        changes['PlaybackStatus']=GLib.Variant('s',status)
         save()
         invocation.return_value(None)
         bus.emit_signal(None,path,'org.freedesktop.DBus.Properties','PropertiesChanged',
-                        GLib.Variant('(sa{sv}as)',('org.mpris.MediaPlayer2.Player',{'PlaybackStatus':GLib.Variant('s',status)},[])))
+                        GLib.Variant('(sa{sv}as)',('org.mpris.MediaPlayer2.Player',changes,[])))
         if name=='Quit':loop.quit()
     info=Gio.DBusNodeInfo.new_for_xml(XML)
     for interface in info.interfaces:bus.register_object('/org/mpris/MediaPlayer2',interface,method,get_property,None)
-    owner=Gio.bus_own_name_on_connection(bus,'org.mpris.MediaPlayer2.rice_test',Gio.BusNameOwnerFlags.NONE,lambda *_:save(),None)
+    owner=Gio.bus_own_name_on_connection(bus,'org.mpris.MediaPlayer2.'+args.name,Gio.BusNameOwnerFlags.NONE,lambda *_:save(),None)
     def stop():loop.quit();return False
-    GLib.timeout_add_seconds(90,stop)
-    GLib.unix_signal_add(GLib.PRIORITY_DEFAULT,signal.SIGTERM,stop)
+    GLib.timeout_add_seconds(min(600,max(10,args.duration)),stop)
+    GLibUnix.signal_add(GLib.PRIORITY_DEFAULT,signal.SIGTERM,stop)
     try:loop.run()
     finally:Gio.bus_unown_name(owner)
 

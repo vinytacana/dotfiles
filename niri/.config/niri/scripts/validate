@@ -36,7 +36,7 @@ print('Alacritty TOML: OK')
 run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
 for name in ['lock','idle','mako-session','settings-hub']: run(name,['sh','-n',str(root/'scripts'/name)])
 for name in ['wallpaper-session']: run(name,['sh','-n',str(root/'scripts'/name)])
-for name in ['dock-app','dock-mode','rice-ui','rice_common.py','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py','lockscreen','rice_power.py','waybar-preset','waybar_presets.py','media-player']:
+for name in ['dock-app','dock-mode','rice-ui','rice_common.py','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py','lockscreen','rice_power.py','waybar-preset','waybar_presets.py','media-player','media-idle']:
     try:
         compile((root/'scripts'/name).read_text(),str(root/'scripts'/name),'exec')
         print(f'{name}: OK')
