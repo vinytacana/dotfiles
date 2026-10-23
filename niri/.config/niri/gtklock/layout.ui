@@ -28,8 +28,7 @@
         <child>
           <object class="GtkLabel" id="lock-hint">
             <property name="name">lock-hint</property>
-            <property name="label">Bloqueado · pressione uma tecla ou mova o mouse
-A digitação é preservada ao retornar.</property>
+            <property name="label">Bloqueado</property>
             <property name="justify">center</property>
           </object>
         </child>
