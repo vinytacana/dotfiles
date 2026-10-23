@@ -11,7 +11,8 @@ import rice_search as search
 class Spotlight(Popup):
     def __init__(self,app):
         super().__init__(app,'Spotlight do Niri',800)
-        self.pending=None;self.indexing=False
+        self.pending=None;self.index_pending=None;self.indexing=False
+        self.connect('destroy',self.cleanup)
         self.apps=sorted([a for a in Gio.AppInfo.get_all() if a.get_id() and a.should_show() and isinstance(a,Gio.DesktopAppInfo)],key=lambda a:a.get_display_name().casefold())
         top=Gtk.Box(spacing=8)
         self.entry=Gtk.SearchEntry(placeholder_text='Pesquisar aplicativos, arquivos e projetos…')
@@ -33,8 +34,21 @@ class Spotlight(Popup):
         self.results();self.entry.grab_focus()
         if not (STATE/'launcher.json').exists():self.index()
     def debounce(self):
+        if not self.alive:return
         if self.pending:GLib.source_remove(self.pending)
-        self.pending=GLib.timeout_add(120,self.results)
+        def ready():
+            self.pending=None
+            return self.results()
+        self.pending=GLib.timeout_add(120,ready)
+    def cleanup(self,*_):
+        # A settings/calendar window can keep this GTK application alive.
+        # Cancel popup work, while an independently running index may finish.
+        for name in ['pending','index_pending']:
+            source=getattr(self,name)
+            if source and GLib.MainContext.default().find_source_by_id(source):
+                GLib.source_remove(source)
+            setattr(self,name,None)
+        self.indexing=False
     def row(self,title,subtitle,callback,app=None,icon='system-run-symbolic',extra=None):
         row=Gtk.ListBoxRow();row.callback=callback;row.get_style_context().add_class('search-result')
         box=Gtk.Box(spacing=12)
@@ -74,7 +88,7 @@ class Spotlight(Popup):
         else:items.append(path)
         prefs['favorite_projects']=items;write_json(STATE/'launcher.json',prefs);self.results()
     def results(self):
-        self.pending=None
+        if not self.alive:return False
         for row in self.list.get_children():self.list.remove(row)
         text=self.entry.get_text().strip();prefix=text[:1];query=text[1:].strip() if prefix in ['>','=','/','@'] else text
         if prefix=='>':
@@ -122,16 +136,17 @@ class Spotlight(Popup):
             return True
         return False
     def index(self):
-        if self.indexing:return
+        if not self.alive or self.indexing:return
         self.indexing=True;self.message.set_text('Atualizando índice em segundo plano…')
         subprocess.run(['systemctl','--user','start','--no-block','niri-rice-index.service'],check=True,timeout=3)
         def ready():
-            if not self.alive:return False
+            if not self.alive:self.index_pending=None;return False
             state=subprocess.run(['systemctl','--user','is-active','--quiet','niri-rice-index.service']).returncode
             if state==0:return True
+            self.index_pending=None
             result=subprocess.check_output(['systemctl','--user','show','-p','Result','--value','niri-rice-index.service'],text=True,timeout=2).strip()
             self.indexing=False;self.message.set_text('Índice atualizado. Pesquisa somente por nomes.' if result=='success' else 'Falha ao atualizar o índice. Verifique as pastas e o serviço niri-rice-index.');self.results();return False
-        GLib.timeout_add(800,ready)
+        self.index_pending=GLib.timeout_add(800,ready)
     def preferences(self):
         visible=self.preferences_box.get_visible()
         if visible:self.preferences_box.hide();return
