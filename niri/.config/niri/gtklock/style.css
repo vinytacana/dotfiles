@@ -26,6 +26,16 @@ window.focused:not(.hidden) #date-label {
     text-shadow: 0 2px 12px rgba(17, 17, 27, 0.6);
 }
 #body-grid { margin-top: 60px; }
+/* A classe hidden é aplicada pelo GTKLock, sem um segundo painel ou timer. */
+#lock-hint {
+    color: #a6adc8;
+    font-size: 12px;
+    margin-top: 18px;
+    text-shadow: 0 2px 10px rgba(17, 17, 27, 0.75);
+    opacity: 0;
+    transition: opacity 300ms ease-in-out;
+}
+window.hidden #lock-hint { opacity: 1; }
 #user-icon { color: #b4befe; margin-bottom: 10px; }
 #user-label { color: #cdd6f4; font-weight: 600; margin-bottom: 18px; }
 #input-field {
