@@ -9,5 +9,7 @@ StartLimitIntervalSec=30s
 StartLimitBurst=20
 [Service]
 ExecStart=%h/.config/niri/scripts/waybar-session
+# Opt-in snapshots expire automatically; runs only when the unit stops.
+ExecStopPost=-%h/.config/niri/scripts/waybar-diagnose stop
 Restart=on-failure
 RestartSec=3
