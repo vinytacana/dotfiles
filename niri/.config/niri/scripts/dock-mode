@@ -4,20 +4,28 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+sys.dont_write_bytecode = True
+from rice_bar import capture, restart, update_lock
 
 if len(sys.argv) != 2 or sys.argv[1] not in {"on", "off", "toggle", "status"}:
     sys.exit("Uso: dock-mode {on|off|toggle|status}")
 home = Path.home()
 flag = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "niri-rice/dock-disabled"
-disabled = flag.exists()
 if sys.argv[1] == "status":
-    print("off" if disabled else "on")
+    print("off" if flag.exists() else "on")
     sys.exit()
-enable = sys.argv[1] == "on" or (sys.argv[1] == "toggle" and disabled)
-flag.parent.mkdir(parents=True, exist_ok=True)
-if enable:
-    flag.unlink(missing_ok=True)
-else:
-    flag.touch()
-subprocess.run(["systemctl", "--user", "restart", "niri-rice-bar.service"], check=True)
-print("on" if enable else "off")
+with update_lock():
+    before = flag.read_bytes() if flag.exists() else None
+    capture('before-dock-'+sys.argv[1])
+    enable = sys.argv[1] == "on" or (sys.argv[1] == "toggle" and before is not None)
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if enable: flag.unlink(missing_ok=True)
+        else: flag.touch(mode=0o600)
+        restart('dock-'+sys.argv[1])
+    except (OSError, subprocess.SubprocessError):
+        if before is None: flag.unlink(missing_ok=True)
+        else: flag.write_bytes(before)
+        restart('dock-rollback')
+        raise
+    print("on" if enable else "off")
