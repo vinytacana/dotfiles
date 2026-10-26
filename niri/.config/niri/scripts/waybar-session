@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 from rice_common import ROOT, STATE, favorites, desktop, icon_file, appearance
 from waybar_presets import current, render
+from rice_bar import atomic_text
 
 os.environ['LC_TIME'] = 'pt_BR.UTF-8'
 os.environ['LANGUAGE'] = 'pt_BR'
@@ -15,7 +16,9 @@ runtime = Path(os.environ['XDG_RUNTIME_DIR']) / 'niri-rice'
 runtime.mkdir(mode=0o700, exist_ok=True)
 preset = current()
 bars, css = render(preset)
-items = favorites()
+dock_enabled = not (STATE / 'dock-disabled').exists()
+# A disabled dock must not parse favorites or start GTK image decoders.
+items = favorites() if dock_enabled else []
 dock = next(bar for bar in bars if bar['name'] == 'dock')
 dock['modules-center'] = []
 for number, identity in enumerate(items):
@@ -43,8 +46,9 @@ if prefs['style'] == 'light' and preset == 'original':
                      '30, 30, 46':'239, 241, 245', '24, 24, 37':'230, 233, 239'}.items():
         css = css.replace(old, new)
 css = css.replace('0.94)', f'{opacity:.2f})')
-if (STATE / 'dock-disabled').exists():
+if not dock_enabled:
     bars = [bar for bar in bars if bar.get('name') != 'dock']
-(runtime / 'waybar.json').write_text(json.dumps(bars))
-(runtime / 'waybar.css').write_text(css)
+atomic_text(runtime / 'waybar.json', json.dumps(bars))
+atomic_text(runtime / 'waybar.css', css)
+print('waybar-session: preset='+preset+' bars='+','.join(bar['name'] for bar in bars), flush=True)
 os.execv('/usr/bin/waybar', ['waybar', '-c', str(runtime / 'waybar.json'), '-s', str(runtime / 'waybar.css')])
