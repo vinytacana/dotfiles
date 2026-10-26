@@ -46,11 +46,16 @@ def render(selected=None):
         top.pop('custom/settings', None)
         baseline = json.loads((ROOT/'waybar.jsonc').read_text())[0]
         top['custom/control'] = baseline['custom/control']
+        top['custom/notifications'] = baseline['custom/notifications']
         for name in ['network','bluetooth','battery']:
             top[name]['on-click'] = baseline[name]['on-click']
     uri = json.dumps((ROOT/'icons/control-center.svg').as_uri())
     css += f"\nwindow#waybar.top #custom-control {{ background-image: url({uri}); background-size: 20px 20px; background-repeat: no-repeat; background-position: center; min-width: 22px; }}\n"
     css += '#custom-control.open, window#waybar.top #custom-control.open { background-color: #45475a; box-shadow: inset 0 -2px #cba6f7; }\n'
+    # No rice feature hides the top bar. A stray native toggle must not hide it.
+    top['on-sigusr1'] = 'show'
+    # Dock preference belongs to dock-mode, never to an untracked signal toggle.
+    next(bar for bar in bars if bar['name'] == 'dock')['on-sigusr1'] = 'noop'
     return bars, css
 
 
