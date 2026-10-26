@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+"""On-demand snapshots; optional automatic capture expires after seven days."""
+import argparse
+import sys
+import time
+sys.dont_write_bytecode = True
+from rice_bar import DIAGNOSTICS, atomic_text, capture
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('action', choices=['snapshot', 'enable', 'disable', 'stop', 'resume'], default='snapshot', nargs='?')
+args = parser.parse_args()
+if args.action == 'enable':
+    DIAGNOSTICS.mkdir(mode=0o700, parents=True, exist_ok=True)
+    atomic_text(DIAGNOSTICS/'enabled-until', str(time.time()+7*86400))
+    print('Diagnóstico por eventos habilitado por sete dias; nenhum processo residente.')
+elif args.action == 'disable':
+    (DIAGNOSTICS/'enabled-until').unlink(missing_ok=True)
+else:
+    result = capture({'stop': 'service-stop', 'resume': 'after-resume'}.get(args.action, 'manual'), force=args.action == 'snapshot')
+    if result: print(result)
+    if args.action == 'resume' and result:
+        # One bounded follow-up once outputs settle; never reloads or restarts.
+        time.sleep(3)
+        capture('after-resume-settled')
