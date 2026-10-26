@@ -116,7 +116,8 @@ def launch(identity, action=None):
 
 
 def reload_bar():
-    subprocess.run(['systemctl', '--user', 'restart', 'niri-rice-bar.service'], check=True, timeout=10)
+    from rice_bar import reload_bar as refresh
+    refresh()
 
 
 def run(command):
