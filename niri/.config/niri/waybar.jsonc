@@ -99,17 +99,23 @@
       "max-length": 8
     },
     "custom/notifications": {
-      "exec": "~/.config/niri/scripts/notifications",
+      "exec": "exec swaync-client --skip-wait --subscribe-waybar",
       "return-type": "json",
-      "interval": 5,
+      "restart-interval": 5,
+      "exec-on-event": false,
+      "tooltip-format": "Notificações: {text}\nClique: abrir histórico\nBotão direito: Não perturbe",
       "on-click": "~/.config/niri/scripts/notifications open",
       "on-click-right": "~/.config/niri/scripts/notifications dnd",
       "format": "{icon}",
       "format-icons": {
-        "empty": "󰂜",
-        "pending": "󰂚",
-        "paused": "󰂛",
-        "unavailable": "󰂛"
+        "none": "󰂜",
+        "notification": "󰂚",
+        "dnd-none": "󰂛",
+        "dnd-notification": "󰂛",
+        "inhibited-none": "󰂛",
+        "inhibited-notification": "󰂛",
+        "dnd-inhibited-none": "󰂛",
+        "dnd-inhibited-notification": "󰂛"
       }
     },
     "custom/power": {
