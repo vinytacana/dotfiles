@@ -16,6 +16,11 @@ window#waybar.top { border: 1px solid #313244; }
 #battery.charging { color: #a6e3a1; }
 #battery.warning { color: #f9e2af; }
 #battery.critical, #custom-notifications.paused { color: #f38ba8; }
+/* Native SwayNC stream classes, shared by modern and Original presets. */
+window#waybar.top #custom-notifications.dnd-none,
+window#waybar.top #custom-notifications.dnd-notification,
+window#waybar.top #custom-notifications.dnd-inhibited-none,
+window#waybar.top #custom-notifications.dnd-inhibited-notification { color: #f38ba8; }
 window#waybar.dock { background: rgba(24, 24, 37, 0.94); border: 1px solid #45475a; border-radius: 18px; }
 window#waybar.dock .module { min-width: 42px; min-height: 40px; padding: 3px 3px; margin: 3px 3px; border-radius: 11px; border-bottom: 2px solid transparent; background-size: 30px 30px; background-position: center; background-repeat: no-repeat; transition: background-color 120ms ease-in-out; }
 window#waybar.dock .module:hover { background-color: #313244; }
