@@ -431,6 +431,19 @@ class ControlCenter(Popup):
                 identity = bus.signal_subscribe(sender, None, None, None, None, Gio.DBusSignalFlags.NONE, changed)
                 self.subscriptions.append((bus, identity))
             except GLib.Error: pass
+        # Share Mocha OSD's one Pulse subscription while it owns the bus name.
+        # If OSD is disabled/stopped, retain the previous on-demand fallback.
+        try:
+            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+            identity = bus.signal_subscribe('org.niri.MochaOSD','org.niri.MochaOSD','AudioChanged',
+                '/org/niri/MochaOSD',None,Gio.DBusSignalFlags.NONE,lambda *_: self.queue_refresh())
+            self.subscriptions.append((bus,identity))
+            self.osd_name_watch = Gio.bus_watch_name_on_connection(bus,'org.niri.MochaOSD',Gio.BusNameWatcherFlags.NONE,
+                lambda *_: self.stop_audio_watch(),lambda *_: self.start_audio_watch())
+        except GLib.Error: self.start_audio_watch()
+
+    def start_audio_watch(self):
+        if not self.alive or self.audio_process: return
         try:
             self.audio_process = subprocess.Popen(['pactl', 'subscribe'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env={**os.environ, 'LC_ALL': 'C'})
             def audio_event(_fd, condition):
@@ -438,10 +451,25 @@ class ControlCenter(Popup):
                 line = self.audio_process.stdout.readline()
                 if any(kind in line for kind in [b"on sink #", b"on source #", b"on server #"]): self.queue_refresh()
                 return self.alive
-            self.sources.add(GLib.io_add_watch(self.audio_process.stdout, GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR, audio_event))
+            self.audio_source = GLib.io_add_watch(self.audio_process.stdout, GLib.IOCondition.IN | GLib.IOCondition.HUP | GLib.IOCondition.ERR, audio_event)
+            self.sources.add(self.audio_source)
         except OSError: pass
 
+    def stop_audio_watch(self):
+        identity = getattr(self,'audio_source',0)
+        if identity:
+            if GLib.MainContext.default().find_source_by_id(identity): GLib.source_remove(identity)
+            self.sources.discard(identity);self.audio_source=0
+        if self.audio_process:
+            if self.audio_process.poll() is None:
+                self.audio_process.terminate()
+                try:self.audio_process.wait(timeout=1)
+                except subprocess.TimeoutExpired:self.audio_process.kill();self.audio_process.wait()
+            self.audio_process.stdout.close();self.audio_process=None
+
     def cleanup(self, *_):
+        if getattr(self,'osd_name_watch',0): Gio.bus_unwatch_name(self.osd_name_watch);self.osd_name_watch=0
+        self.stop_audio_watch()
         for identity in self.pending.values(): GLib.source_remove(identity)
         self.pending.clear()
         for identity in self.sources:
@@ -449,10 +477,4 @@ class ControlCenter(Popup):
         self.sources.clear()
         for bus, identity in self.subscriptions: bus.signal_unsubscribe(identity)
         self.subscriptions.clear()
-        if self.audio_process:
-            if self.audio_process.poll() is None:
-                self.audio_process.terminate()
-                try: self.audio_process.wait(timeout=1)
-                except subprocess.TimeoutExpired: self.audio_process.kill(); self.audio_process.wait()
-            self.audio_process.stdout.close(); self.audio_process = None
         if hasattr(self.app, 'control_visible'): self.app.control_visible.set_state(GLib.Variant('b', False))

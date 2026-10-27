@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+"""Mocha OSD: Niri-only passive indicators. Never changes audio or input state."""
+import argparse,json,sys
+from pathlib import Path
+sys.dont_write_bytecode=True
+from rice_osd import OSDApplication,client,preview,preferences
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('command',choices=['serve','status','show','configure','preview'])
+parser.add_argument('value',nargs='?')
+args=parser.parse_args()
+try:
+    if args.command=='serve':raise SystemExit(OSDApplication().run([sys.argv[0]]))
+    elif args.command=='preview':
+        if not args.value:parser.error('Informe a pasta de prévias')
+        preview(Path(args.value).expanduser())
+    elif args.command=='show':
+        if args.value not in ['volume','layout','caps']:parser.error('Use volume, layout ou caps')
+        client('Show',args.value)
+    elif args.command=='configure':
+        if not args.value:parser.error('Informe preferências JSON')
+        print(client('Configure',json.dumps(preferences(json.loads(args.value)))).unpack()[0])
+    else:print(client('Status').unpack()[0])
+except Exception:
+    raise SystemExit('Mocha OSD indisponível; verifique niri-rice-osd.service e as preferências.')

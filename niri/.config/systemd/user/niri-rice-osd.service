@@ -1,0 +1,12 @@
+[Unit]
+Description=Mocha OSD: volume, keyboard layout and Caps Lock (Niri only)
+PartOf=niri-rice.target graphical-session.target
+After=niri.service graphical-session.target
+ConditionEnvironment=XDG_CURRENT_DESKTOP=niri
+
+[Service]
+Type=dbus
+BusName=org.niri.MochaOSD
+ExecStart=%h/.config/niri/scripts/mocha-osd serve
+Restart=on-failure
+RestartSec=3

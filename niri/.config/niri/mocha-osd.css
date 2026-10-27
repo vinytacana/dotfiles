@@ -1,0 +1,20 @@
+@define-color osd_base #1e1e2e;
+@define-color osd_surface #313244;
+@define-color osd_text #cdd6f4;
+@define-color osd_secondary #a6adc8;
+@define-color osd_accent #cba6f7;
+window#mocha-osd { background: transparent; color: @osd_text; font-family: "Noto Sans", sans-serif; font-size: 14px; }
+.mocha-osd-card { background: alpha(@osd_base,0.96); border: 1px solid alpha(@osd_secondary,0.18); border-radius: 24px; padding: 18px 22px; box-shadow: 0 5px 14px alpha(#11111b,0.28); }
+.mocha-osd-card.compact { padding: 12px 18px; }
+.mocha-osd-card image { color: #b4befe; }
+.mocha-osd-card .percentage { color: @osd_secondary; font-size: 13px; font-weight: 600; }
+.mocha-osd-card .muted { color: @osd_secondary; }
+.mocha-osd-card .caps-active { color: #f9e2af; }
+.mocha-osd-card progressbar trough { background: @osd_surface; border: none; border-radius: 4px; min-height: 6px; }
+.mocha-osd-card progressbar progress { background: @osd_accent; border: none; border-radius: 4px; min-height: 6px; }
+.mocha-osd-card .muted progress { background: @osd_secondary; }
+.mocha-osd-card .boosted progress { background: #f9e2af; }
+.mocha-osd-card .layout-option { background: @osd_surface; border-radius: 16px; padding: 20px 18px; }
+.mocha-osd-card .layout-option.selected { background: @osd_accent; color: @osd_base; }
+.mocha-osd-card .layout-code { font-size: 36px; font-weight: 700; }
+.mocha-osd-card .layout-name { font-size: 13px; }

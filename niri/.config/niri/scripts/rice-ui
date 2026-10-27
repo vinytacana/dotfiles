@@ -430,6 +430,21 @@ class SettingsWindow(Gtk.ApplicationWindow):
         box.pack_start(button('Escolher wallpaper',self.action([str(ROOT/'scripts/wallpaper-manager'),'choose']),'preferences-desktop-wallpaper-symbolic'),False,False,0)
         box.pack_start(button('Restaurar wallpaper original',self.action([str(ROOT/'scripts/wallpaper-manager'),'restore'])),False,False,0)
         box.pack_start(button('Mostrar / ocultar dock',self.action([str(ROOT/'scripts/dock-mode'),'toggle'])),False,False,0)
+        # User preferences only; no audio/input changes and no Waybar reload.
+        from rice_osd import preferences, client
+        box.pack_start(label('Indicadores OSD', 'section-title'),False,False,0)
+        osd_prefs=preferences();osd_controls={}
+        for key,title in [('volume','Volume'),('layout','Idioma do teclado'),('caps','Caps Lock'),
+                          ('compact','Estilo compacto'),('reduced_motion','Animações reduzidas')]:
+            toggle=Gtk.CheckButton(label=title);toggle.set_active(osd_prefs[key])
+            osd_controls[key]=toggle;box.pack_start(toggle,False,False,0)
+        timeout=Gtk.SpinButton.new_with_range(700,5000,100);timeout.set_value(osd_prefs['timeout_ms'])
+        timeout.set_tooltip_text('Tempo de exibição em milissegundos');box.pack_start(timeout,False,False,0)
+        def save_osd():
+            values={key:widget.get_active() for key,widget in osd_controls.items()}
+            values['timeout_ms']=timeout.get_value_as_int()
+            client('Configure',json.dumps(values));self.note('Preferências do Mocha OSD salvas.')
+        box.pack_start(button('Aplicar indicadores',lambda:self.app.safe(save_osd),'emblem-ok-symbolic'),False,False,0)
 
     def energy(self, box):
         def battery():
