@@ -1,0 +1,30 @@
+/* Geometry stays in the Mocha templates. These are semantic color overrides. */
+@define-color cc_accent @orbit_primary;
+headerbar .title, .page-title, .section-title { color: @orbit_primary; }
+entry:focus { border-color: @orbit_primary; }
+scale highlight, switch:checked { background: @orbit_primary; }
+scale slider { background: @orbit_text_primary; }
+row:selected, .search-result:selected, stacksidebar row:selected {
+    background: @orbit_primary_strong; color: @orbit_text_primary;
+    box-shadow: inset 3px 0 @orbit_primary;
+}
+.control-center-card .cc-connection.enabled,
+.control-center-card .cc-quick.enabled { background: alpha(@orbit_primary_strong,0.35); }
+.control-center-card image { color: @orbit_primary; }
+.control-center-card .muted, .control-center-card .muted image { color: @orbit_danger; }
+.calendar-card .calendar-day.selected {
+    background: @orbit_primary_strong; color: @orbit_text_primary;
+}
+.calendar-card .calendar-day.today {
+    background: @orbit_primary; color: @orbit_background_deep;
+}
+.calendar-card .calendar-day.today:hover { background: @orbit_text_secondary; }
+.calendar-card .calendar-navigation:hover, .calendar-card .calendar-footer:hover { color: @orbit_primary; }
+.power-menu-card .power-item.selected {
+    background: @orbit_primary_strong; color: @orbit_text_primary;
+    border-color: @orbit_primary; box-shadow: inset 0 -2px @orbit_primary;
+}
+.power-confirm-button { background: @orbit_primary_strong; color: @orbit_text_primary; }
+.power-confirm-button:hover { background: @orbit_surface_hover; color: @orbit_text_primary; }
+.power-confirm-button.destructive { background: alpha(@orbit_danger,0.16); color: @orbit_danger; border-color: @orbit_danger; }
+.power-confirm-button.destructive:hover { background: alpha(@orbit_danger,0.26); color: @orbit_danger; }

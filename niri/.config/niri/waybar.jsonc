@@ -131,7 +131,7 @@
     "custom/system": {
       "format": "",
       "tooltip-format": "Fedora · Aplicativos\nBotão direito: Configurações",
-      "on-click": "systemd-run --user --quiet --collect --property=ExitType=cgroup --property=PartOf=graphical-session.target -- fuzzel --config ~/.config/niri/fuzzel.ini",
+      "on-click": "systemd-run --user --quiet --collect --property=ExitType=cgroup --property=PartOf=graphical-session.target -- ~/.config/niri/scripts/rice-theme launcher",
       "on-click-right": "~/.config/niri/scripts/settings-hub"
     },
     "group/resources": {

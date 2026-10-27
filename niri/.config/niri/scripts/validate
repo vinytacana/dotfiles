@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Validação sem iniciar compositor, barra ou bloqueador na sessão atual."""
 import hashlib, json, shutil, subprocess, sys, tomllib
+sys.dont_write_bytecode=True
 from pathlib import Path
 home=Path.home(); root=home/'.config/niri'; failures=[]
 def run(name,args):
@@ -36,7 +37,7 @@ print('Alacritty TOML: OK')
 run('Alacritty parser', ['alacritty','migrate','--dry-run','--silent','--config-file',str(home/'.config/alacritty/niri.toml')])
 for name in ['lock','idle','mako-session','settings-hub']: run(name,['sh','-n',str(root/'scripts'/name)])
 for name in ['wallpaper-session']: run(name,['sh','-n',str(root/'scripts'/name)])
-for name in ['dock-app','dock-mode','rice-ui','rice_common.py','rice_osd.py','mocha-osd','rice_bar.py','rice_recovery.py','waybar-recover','waybar-diagnose','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py','lockscreen','rice_power.py','waybar-preset','waybar_presets.py','media-player','media-idle','rice_control_center.py','control-indicator']:
+for name in ['dock-app','dock-mode','rice-ui','rice_common.py','rice_theme.py','rice-theme','rice_osd.py','mocha-osd','rice_bar.py','rice_recovery.py','waybar-recover','waybar-diagnose','gtk3-app','settings-window','wallpaper-manager','waybar-session','notifications','notification-server','notification-prune','clipboard-store','clipboard-control','launcher-index','rice-open','rice-rollback','rice_widgets.py','rice_controls.py','rice_panels.py','rice_clipboard.py','rice_search.py','rice_launcher.py','lockscreen','rice_power.py','waybar-preset','waybar_presets.py','media-player','media-idle','rice_control_center.py','control-indicator']:
     try:
         compile((root/'scripts'/name).read_text(),str(root/'scripts'/name),'exec')
         print(f'{name}: OK')
@@ -55,6 +56,8 @@ run('Waybar presets JSON/GTK3/selection',[sys.executable,str(root/'tests/test_wa
 run('Waybar state/serialization/diagnostics',[sys.executable,str(root/'tests/test_bar_lifecycle.py')])
 run('Waybar bounded event recovery',[sys.executable,str(root/'tests/test_waybar_recovery.py')])
 run('Mocha OSD GTK/events/privacy/lifecycle',[sys.executable,str(root/'tests/test_osd.py')])
+run('Orbit/Mocha colors/configuration/transactions',[sys.executable,str(root/'tests/test_theme.py')])
+run('Orbit/Mocha generated CSS/KDL/TOML',[str(root/'scripts/rice-theme'),'check'])
 run('Control center GTK/backends/lifecycle',[sys.executable,str(root/'tests/test_control_center.py')])
 run('Calendar GTK layout/navigation/lifecycle',[sys.executable,str(root/'tests/test_calendar.py')])
 if shutil.which('gtklock'):

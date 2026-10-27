@@ -118,7 +118,7 @@ binds {
     Mod+Space hotkey-overlay-title="Próximo idioma" { switch-layout "next"; }
     Mod+Shift+Space hotkey-overlay-title="Idioma anterior" { switch-layout "prev"; }
     Mod+Return hotkey-overlay-title="Terminal" { spawn "sh" "-c" "exec alacritty --config-file ~/.config/alacritty/niri.toml"; }
-    Mod+D hotkey-overlay-title="Aplicativos" { spawn "sh" "-c" "exec fuzzel --config ~/.config/niri/fuzzel.ini"; }
+    Mod+D hotkey-overlay-title="Aplicativos" { spawn "sh" "-c" "exec ~/.config/niri/scripts/rice-theme launcher"; }
     Mod+E hotkey-overlay-title="Arquivos" { spawn "nautilus" "--new-window"; }
     Mod+B hotkey-overlay-title="Monitor de recursos" { spawn "sh" "-c" "exec alacritty --config-file ~/.config/alacritty/niri.toml -e btop"; }
     Mod+Q { close-window; }
@@ -182,3 +182,5 @@ binds {
     XF86MonBrightnessUp allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "set" "+5%"; }
     XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "--class=backlight" "--min-value=1" "set" "5%-"; }
 }
+// Color-only overrides; missing generated state retains the Mocha defaults above.
+include optional=true "~/.local/state/niri-rice/theme/niri.kdl"

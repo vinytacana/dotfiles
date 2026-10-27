@@ -21,7 +21,7 @@ def current():
     return selected
 
 
-def render(selected=None):
+def render(selected=None, theme=None):
     selected = selected or current()
     choices = profiles()
     if selected not in choices:
@@ -56,6 +56,13 @@ def render(selected=None):
     top['on-sigusr1'] = 'show'
     # Dock preference belongs to dock-mode, never to an untracked signal toggle.
     next(bar for bar in bars if bar['name'] == 'dock')['on-sigusr1'] = 'noop'
+    from rice_theme import css as theme_css, colorize
+    css = theme_css('waybar', theme, source=css)
+    for bar in bars:
+        for key,value in bar.items():
+            if key.startswith('mpris#') and isinstance(value,dict):
+                for field in ['format','format-playing','format-paused','format-stopped']:
+                    if field in value:value[field]=colorize(value[field],theme)
     return bars, css
 
 

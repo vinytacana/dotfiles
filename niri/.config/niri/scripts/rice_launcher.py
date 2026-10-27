@@ -23,7 +23,7 @@ class Spotlight(Popup):
         self.panel.pack_start(self.scroll,True,True,0)
         footer=Gtk.Box(spacing=8);footer.pack_start(button('Atualizar índice',self.index,'view-refresh-symbolic'),False,False,0)
         footer.pack_start(button('Pastas pesquisadas',self.preferences,'folder-symbolic'),False,False,0)
-        footer.pack_end(button('Fuzzel',lambda:(self.destroy(),run(['fuzzel','--config',str(ROOT/'fuzzel.ini')]))),False,False,0)
+        footer.pack_end(button('Fuzzel',lambda:(self.destroy(),run([str(ROOT/'scripts/rice-theme'),'launcher']))),False,False,0)
         self.panel.pack_start(footer,False,False,0)
         self.message=label('Pesquisa por nome. O índice não lê o conteúdo dos arquivos.','muted');self.panel.pack_start(self.message,False,False,0)
         self.preferences_box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8);self.preferences_box.set_no_show_all(True)

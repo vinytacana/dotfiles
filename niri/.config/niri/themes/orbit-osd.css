@@ -1,0 +1,7 @@
+@define-color osd_accent @orbit_primary;
+.mocha-osd-card .caps-active { color: @orbit_accent_violet; }
+.mocha-osd-card .layout-option.selected {
+    background: @orbit_primary_strong; color: @orbit_text_primary;
+    box-shadow: inset 0 0 0 1px @orbit_primary;
+}
+.mocha-osd-card .boosted progress { background: @orbit_accent_violet; }

@@ -4,7 +4,8 @@ import os,sys
 from pathlib import Path
 sys.dont_write_bytecode=True
 if 'niri' in os.environ.get('XDG_CURRENT_DESKTOP','').split(':'):
+    from rice_theme import active_css
     root=Path.home()/'.config/niri'
-    os.execv('/usr/bin/swaync',['swaync','--config',str(root/'swaync.json'),'--style',str(root/'swaync.css')])
+    os.execv('/usr/bin/swaync',['swaync','--config',str(root/'swaync.json'),'--style',str(active_css('swaync'))])
 else:
     os.execv('/usr/bin/mako',['mako'])

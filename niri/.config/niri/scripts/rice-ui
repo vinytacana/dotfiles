@@ -408,6 +408,21 @@ class SettingsWindow(Gtk.ApplicationWindow):
 
     def look(self, box):
         prefs=appearance()
+        from rice_theme import palettes, current as current_theme
+        box.pack_start(label('Tema visual', 'section-title'),False,False,0)
+        visual=Gtk.ComboBoxText()
+        for identity,value in palettes().items():visual.append(identity,value['label'])
+        visual.set_active_id(current_theme());box.pack_start(visual,False,False,0)
+        def select_theme():
+            identity=visual.get_active_id();apply_theme_button.set_sensitive(False)
+            def work():
+                result=subprocess.run([str(ROOT/'scripts/rice-theme'),'set',identity],capture_output=True,text=True,timeout=45)
+                return 'Tema visual aplicado.' if result.returncode==0 else result.stderr.strip()
+            def done(value):
+                if self.get_visible():self.note(str(value));apply_theme_button.set_sensitive(True)
+            async_update(work,done)
+        apply_theme_button=button('Aplicar tema visual',lambda:self.app.safe(select_theme),'emblem-ok-symbolic')
+        box.pack_start(apply_theme_button,False,False,0)
         from waybar_presets import profiles, current
         box.pack_start(label('Estilo da Waybar', 'section-title'),False,False,0)
         preset=Gtk.ComboBoxText()
@@ -418,11 +433,11 @@ class SettingsWindow(Gtk.ApplicationWindow):
             subprocess.run([str(ROOT/'scripts/waybar-preset'),'set',preset.get_active_id()],check=True,timeout=15)
             self.note('Estilo da Waybar salvo. O calendário e a dock continuam disponíveis.')
         box.pack_start(button('Aplicar estilo da Waybar',lambda:self.app.safe(select_preset),'emblem-ok-symbolic'),False,False,0)
-        box.pack_start(label('Os três estilos novos usam Catppuccin Mocha. “Original” restaura o visual anterior e aceita o tema claro abaixo.', 'muted'),False,False,0)
+        box.pack_start(label('Os presets preservam o calendário central e a dock. Mocha e Orbit usam a mesma organização.', 'muted'),False,False,0)
         box.pack_start(label('A central permanece escura. Estas preferências afetam a Waybar, a dock e os utilitários GTK3 abertos pelo rice; o GNOME mantém suas preferências.', 'muted'),False,False,0)
         style=Gtk.ComboBoxText()
-        style.append('dark','Catppuccin Mocha · escuro')
-        style.append('light','Catppuccin Latte · claro')
+        style.append('dark','Utilitários GTK3 · escuro')
+        style.append('light','Utilitários GTK3 · claro')
         style.set_active_id(prefs['style'])
         box.pack_start(style,False,False,0)
         box.pack_start(label('Opacidade da barra e dock', 'section-title'),False,False,0)
@@ -587,12 +602,19 @@ class Rice(Gtk.Application):
         Gtk.Application.do_startup(self)
         self.control_visible=Gio.SimpleAction.new_stateful("control-visible",None,GLib.Variant("b",False))
         self.add_action(self.control_visible)
+        refresh=Gio.SimpleAction.new('reload-theme',None)
+        refresh.connect('activate',lambda *_:self.load_theme());self.add_action(refresh)
         settings=Gtk.Settings.get_default()
         settings.set_property('gtk-application-prefer-dark-theme',True)
         settings.set_property('gtk-theme-name','Adwaita')
-        provider=Gtk.CssProvider()
-        provider.load_from_path(str(ROOT/'rice-ui.css'))
+        self.load_theme()
+
+    def load_theme(self):
+        from rice_theme import css
+        provider=Gtk.CssProvider();provider.load_from_data(css('ui').encode())
+        if getattr(self,'theme_provider',None):Gtk.StyleContext.remove_provider_for_screen(Gdk.Screen.get_default(),self.theme_provider)
         Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(),provider,Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.theme_provider=provider
 
     def safe(self, callback):
         try:callback()

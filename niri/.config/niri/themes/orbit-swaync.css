@@ -1,0 +1,5 @@
+.widget-dnd > switch:checked { background: @orbit_primary_strong; }
+.notification-action:checked { background: @orbit_primary_strong; color: @orbit_text_primary; }
+.notification-action:focus, .widget-title > button:focus { outline-color: @orbit_primary; }
+.notification.critical { border-color: @orbit_danger; }
+.notification-action:hover, .widget-title > button:hover { color: @orbit_primary; }

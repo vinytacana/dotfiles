@@ -29,6 +29,7 @@ INTERFACE = '''<node><interface name="org.niri.MochaOSD">
 <method name="Show"><arg type="s" direction="in"/></method>
 <method name="Configure"><arg type="s" direction="in"/><arg type="s" direction="out"/></method>
 <method name="Status"><arg type="s" direction="out"/></method>
+<method name="ReloadTheme"/>
 <signal name="AudioChanged"/>
 </interface></node>'''
 
@@ -172,9 +173,15 @@ def content(model, compact=False):
     return card
 
 
+_provider=None
 def load_css():
-    provider = Gtk.CssProvider(); provider.load_from_path(str(ROOT/'mocha-osd.css'))
-    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    from rice_theme import css
+    global _provider
+    provider=Gtk.CssProvider();provider.load_from_data(css('osd').encode())
+    screen=Gdk.Screen.get_default()
+    if _provider:Gtk.StyleContext.remove_provider_for_screen(screen,_provider)
+    Gtk.StyleContext.add_provider_for_screen(screen,provider,Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    _provider=provider
 
 
 class OSDWindow(Gtk.ApplicationWindow):
@@ -417,12 +424,15 @@ class OSDApplication(Gtk.Application):
                 self.prefs=preferences(json.loads(params.unpack()[0]));write_json(PREFERENCES,self.prefs);self.suppress()
                 self.sources.cancel('caps');self.last_caps=None;self.poll_caps()
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(self.prefs),)))
+            elif method=='ReloadTheme':
+                load_css();invocation.return_value(None)
             else:
+                from rice_theme import current
                 value={'preferences':self.prefs,'layout':layout_model(self.names,self.index),
                        'caps':caps_state(),'volume':self.last_volume,'visible':self.window.get_visible(),
                        'session_known':self.session_proxy is not None,
                        'niri_connected':self.niri_socket is not None,'audio_watching':self.audio_process is not None,
-                       'kind':self.model['kind'] if self.model else None,'pid':os.getpid()}
+                       'kind':self.model['kind'] if self.model else None,'pid':os.getpid(),'theme':current()}
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(value),)))
         except (OSError,ValueError,IndexError,subprocess.SubprocessError):invocation.return_dbus_error(NAME+'.Invalid','Estado indisponível ou preferência inválida')
 

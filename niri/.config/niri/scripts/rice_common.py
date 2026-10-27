@@ -135,7 +135,8 @@ def icon_file(app):
         info = theme.lookup_icon('application-x-executable', 48, Gtk.IconLookupFlags.FORCE_SIZE)
     if info and info.is_symbolic():
         color=Gdk.RGBA()
-        color.parse('#cdd6f4' if appearance()['style']=='dark' else '#4c4f69')
+        from rice_theme import palette, current
+        color.parse(palette()['text-primary'] if current()=='orbit' or appearance()['style']=='dark' else '#4c4f69')
         pixbuf,_=info.load_symbolic(color,None,None,None)
         cache=Path(os.environ['XDG_RUNTIME_DIR'])/'niri-rice/icons'
         cache.mkdir(parents=True,exist_ok=True)

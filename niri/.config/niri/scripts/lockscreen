@@ -27,6 +27,12 @@ STATE = Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state'))/'niri
 RECIPE = '1920x1080-cover-blur18-dim22-v1'
 
 
+def active_css(_component='gtklock'):
+    # Locking never depends on the theme controller importing successfully.
+    generated=STATE.parent/'theme/gtklock.css'
+    return generated if generated.is_file() else ROOT/'gtklock/style.css'
+
+
 def atomic_write(path, data):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.'+path.name)
@@ -175,7 +181,7 @@ def validate_gtk():
     errors = []
     provider = Gtk.CssProvider()
     provider.connect('parsing-error', lambda _, section, error: errors.append(str(error)))
-    provider.load_from_path(str(ROOT/'gtklock/style.css'))
+    provider.load_from_path(str(active_css('gtklock')))
     builder = Gtk.Builder.new_from_file(str(layout()))
     required = {'window-box': Gtk.Box, 'body-revealer': Gtk.Revealer,
                 'body-grid': Gtk.Grid, 'input-label': Gtk.Label, 'input-field': Gtk.Entry,
@@ -272,7 +278,7 @@ def lock(force_gtklock=False, follow_focus=False):
                 selected = 'swaylock'
             else:
                 args = ['gtklock', '--daemonize', '--config', str(ROOT/'gtklock/config.ini'),
-                        '--style', str(ROOT/'gtklock/style.css'), '--layout', str(prepared)]
+                        '--style', str(active_css('gtklock')), '--layout', str(prepared)]
                 args.extend(gtklock_options(follow_focus))
                 if image:
                     args.extend(['--background', str(image)])
