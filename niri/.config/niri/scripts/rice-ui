@@ -461,11 +461,19 @@ class SettingsWindow(Gtk.ApplicationWindow):
                           ('compact','Estilo compacto'),('reduced_motion','Animações reduzidas')]:
             toggle=Gtk.CheckButton(label=title);toggle.set_active(osd_prefs[key])
             osd_controls[key]=toggle;box.pack_start(toggle,False,False,0)
-        timeout=Gtk.SpinButton.new_with_range(700,5000,100);timeout.set_value(osd_prefs['timeout_ms'])
-        timeout.set_tooltip_text('Tempo de exibição em milissegundos');box.pack_start(timeout,False,False,0)
+        durations={}
+        for key,title,low,high in [('volume_timeout_ms','Duração do volume (ms)',700,5000),('caps_timeout_ms','Duração do Caps Lock (ms)',400,3000)]:
+            box.pack_start(label(title,'muted'),False,False,0)
+            spin=Gtk.SpinButton.new_with_range(low,high,50);spin.set_value(osd_prefs[key]);box.pack_start(spin,False,False,0);durations[key]=spin
+        box.pack_start(label('Duração do idioma','muted'),False,False,0)
+        language=Gtk.ComboBoxText()
+        for value,title in [(300,'Rápido · 300 ms'),(400,'Padrão · 400 ms'),(700,'Prolongado · 700 ms')]:language.append(str(value),title)
+        if osd_prefs['layout_timeout_ms'] not in [300,400,700]:language.append(str(osd_prefs['layout_timeout_ms']),'Personalizado · '+str(osd_prefs['layout_timeout_ms'])+' ms')
+        language.set_active_id(str(osd_prefs['layout_timeout_ms']));box.pack_start(language,False,False,0)
         def save_osd():
             values={key:widget.get_active() for key,widget in osd_controls.items()}
-            values['timeout_ms']=timeout.get_value_as_int()
+            values.update({key:spin.get_value_as_int() for key,spin in durations.items()})
+            values['layout_timeout_ms']=int(language.get_active_id())
             client('Configure',json.dumps(values));self.note('Preferências do Mocha OSD salvas.')
         box.pack_start(button('Aplicar indicadores',lambda:self.app.safe(save_osd),'emblem-ok-symbolic'),False,False,0)
 

@@ -60,9 +60,20 @@ class Models(unittest.TestCase):
             self.assertIs(osd.caps_state(leds),True)
             (leds/'keyboard::capslock').unlink();self.assertIsNone(osd.caps_state(leds))
     def test_strict_preferences_and_timeout_bounds(self):
-        self.assertEqual(osd.preferences({'timeout_ms':1000})['timeout_ms'],1000)
-        for prefs in [{'volume':'yes'},{'timeout_ms':0},{'timeout_ms':True},{'unknown':True}]:
+        self.assertEqual(osd.preferences({'timeout_ms':1000})['volume_timeout_ms'],1000)
+        self.assertEqual(osd.preferences({'timeout_ms':1700}),osd.DEFAULTS)
+        self.assertEqual(osd.preferences({'timeout_ms':3000})['layout_timeout_ms'],400)
+        for prefs in [{'volume':'yes'},{'timeout_ms':0},{'timeout_ms':True},{'unknown':True},
+                      {'layout_timeout_ms':True},{'layout_timeout_ms':1700},{'caps_timeout_ms':0}]:
             with self.assertRaises(ValueError):osd.preferences(prefs)
+    def test_indicator_budgets_are_independent_and_include_fade(self):
+        prefs=osd.preferences()
+        for kind,expected in [('volume',1350),('caps',900),('layout',400)]:
+            model={'kind':kind}
+            self.assertEqual(osd.hold_ms(model,prefs)+osd.transition_ms(model,prefs),expected)
+            reduced={**prefs,'reduced_motion':True}
+            self.assertEqual(osd.transition_ms(model,reduced),0)
+            self.assertEqual(osd.hold_ms(model,reduced),expected)
     def test_session_must_be_known_unlocked_active_wayland_and_same_user(self):
         props={'User':(os.getuid(),'/u'),'Active':True,'Type':'wayland','LockedHint':False}
         self.assertTrue(osd.session_allowed(props))
@@ -72,6 +83,23 @@ class Models(unittest.TestCase):
 
 
 class Lifecycle(unittest.TestCase):
+    def test_repeated_layout_events_replace_timeout_and_keep_latest_selection(self):
+        app=osd.OSDApplication();app.alive=True;app.session_proxy=object();app.session_path='/session'
+        props={'User':(os.getuid(),'/u'),'Active':True,'Type':'wayland','LockedHint':False}
+        app.session_bus=SimpleNamespace(call_finish=lambda _:SimpleNamespace(unpack=lambda:(props,)))
+        app.session_bus.call=lambda *args:args[-2](app.session_bus,None)
+        app.window=Mock();app.window.revealer=Mock();app.prefs['layout_timeout_ms']=200
+        with patch.object(osd,'locker_running',return_value=False),patch.object(app,'monitor',return_value=object()):
+            names=['Portuguese (Brazil)','English (US)']
+            app.present(osd.layout_model(names,0));settle(.04)
+            app.present(osd.layout_model(names,1));settle(.04)
+            app.present(osd.layout_model(names,0));settle(.14)
+            app.window.hide.assert_not_called()
+            self.assertEqual(app.model['index'],0)
+            settle(.12)
+            app.window.hide.assert_called_once()
+            self.assertIsNone(app.model);self.assertEqual(app.sources.ids,{})
+        app.sources.close()
     def test_control_center_shares_audio_watch_and_retains_fallback(self):
         from rice_control_center import ControlCenter
         panel=SimpleNamespace(subscriptions=[],queue_refresh=Mock(),

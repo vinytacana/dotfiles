@@ -12,6 +12,7 @@ import socket
 import struct
 import subprocess
 import sys
+import time
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -23,7 +24,8 @@ NAME = 'org.niri.MochaOSD'
 OBJECT = '/org/niri/MochaOSD'
 UNIT = 'niri-rice-osd.service'
 PREFERENCES = STATE/'mocha-osd/preferences.json'
-DEFAULTS = {'volume': True, 'layout': True, 'caps': True, 'timeout_ms': 1700,
+DEFAULTS = {'volume': True, 'layout': True, 'caps': True,
+            'volume_timeout_ms': 1350, 'layout_timeout_ms': 400, 'caps_timeout_ms': 900,
             'compact': False, 'reduced_motion': False}
 INTERFACE = '''<node><interface name="org.niri.MochaOSD">
 <method name="Show"><arg type="s" direction="in"/></method>
@@ -40,10 +42,18 @@ def preferences(value=None):
         except (OSError, ValueError): value = {}
     result = DEFAULTS.copy()
     if not isinstance(value, dict): raise ValueError('Preferências inválidas')
+    value=dict(value)
+    legacy=value.pop('timeout_ms',None)
+    if legacy is not None:
+        if type(legacy) is not int or not 700 <= legacy <= 5000:raise ValueError('Tempo deve ser 700–5000 ms')
+        # Preserve a custom legacy volume preference. The old default becomes
+        # 1350ms; layout and Caps now have their own independent defaults.
+        if legacy!=1700:result['volume_timeout_ms']=legacy
     for key, item in value.items():
         if key not in DEFAULTS: raise ValueError('Preferência desconhecida')
-        if key == 'timeout_ms':
-            if type(item) is not int or not 700 <= item <= 5000: raise ValueError('Tempo deve ser 700–5000 ms')
+        if key.endswith('_timeout_ms'):
+            low,high={'volume_timeout_ms':(700,5000),'layout_timeout_ms':(200,1500),'caps_timeout_ms':(400,3000)}[key]
+            if type(item) is not int or not low <= item <= high: raise ValueError('Tempo fora do intervalo permitido')
         elif type(item) is not bool: raise ValueError('Preferência deve ser booleana')
         result[key] = item
     return result
@@ -184,6 +194,16 @@ def load_css():
     _provider=provider
 
 
+def transition_ms(model,prefs):
+    return 0 if prefs['reduced_motion'] else 120 if model['kind']=='layout' else 180
+
+
+def hold_ms(model,prefs):
+    # Budget includes fade-out, so layout really disappears near 400ms rather
+    # than waiting 400ms and then adding another full animation.
+    return max(0,prefs[model['kind']+'_timeout_ms']-transition_ms(model,prefs))
+
+
 class OSDWindow(Gtk.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title='Mocha OSD')
@@ -210,7 +230,7 @@ class OSDWindow(Gtk.ApplicationWindow):
         old = self.revealer.get_child()
         if old: self.revealer.remove(old); old.destroy()
         self.revealer.add(content(model, prefs['compact']))
-        self.revealer.set_transition_duration(0 if prefs['reduced_motion'] else 180)
+        self.revealer.set_transition_duration(transition_ms(model,prefs))
         GtkLayerShell.set_monitor(self, monitor)
         for edge in [GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT, GtkLayerShell.Edge.TOP]:
             GtkLayerShell.set_anchor(self, edge, False)
@@ -290,6 +310,7 @@ class OSDApplication(Gtk.Application):
         self.revision += 1; revision = self.revision
         if not model or not self.prefs[model['kind']] or self.session_proxy is None:
             self.suppress(); return
+        self.sources.cancel('hide');self.sources.cancel('unmap')
         # Fresh asynchronous logind read before each presentation; known-unlocked
         # only. ext-session-lock additionally prevents these surfaces over a lock.
         def ready(bus, result, *_):
@@ -300,13 +321,14 @@ class OSDApplication(Gtk.Application):
                 monitor = self.monitor()
             except (GLib.Error,OSError,ValueError,KeyError,RuntimeError): self.suppress(); return
             self.model = model; self.sources.cancel('unmap'); self.window.update(model, self.prefs, monitor)
-            self.sources.later('hide', self.prefs['timeout_ms'], self.fade_out)
+            self.visible_since=time.monotonic()
+            self.sources.later('hide', hold_ms(model,self.prefs), self.fade_out)
         self.session_bus.call('org.freedesktop.login1', self.session_path,'org.freedesktop.DBus.Properties',
             'GetAll',GLib.Variant('(s)',('org.freedesktop.login1.Session',)),None,Gio.DBusCallFlags.NONE,700,None,ready,None)
 
     def fade_out(self):
         self.window.revealer.set_reveal_child(False)
-        self.sources.later('unmap',0 if self.prefs['reduced_motion'] else 190,self.suppress)
+        self.sources.later('unmap',transition_ms(self.model,self.prefs)+10,self.suppress)
 
     def layout_event(self, event):
         if 'KeyboardLayoutsChanged' in event:
@@ -432,7 +454,8 @@ class OSDApplication(Gtk.Application):
                        'caps':caps_state(),'volume':self.last_volume,'visible':self.window.get_visible(),
                        'session_known':self.session_proxy is not None,
                        'niri_connected':self.niri_socket is not None,'audio_watching':self.audio_process is not None,
-                       'kind':self.model['kind'] if self.model else None,'pid':os.getpid(),'theme':current()}
+                       'kind':self.model['kind'] if self.model else None,'pid':os.getpid(),
+                       'theme':current(),'visible_since':getattr(self,'visible_since',None)}
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(value),)))
         except (OSError,ValueError,IndexError,subprocess.SubprocessError):invocation.return_dbus_error(NAME+'.Invalid','Estado indisponível ou preferência inválida')
 
