@@ -1,0 +1,12 @@
+#!/usr/bin/python3
+"""Run one bounded recovery after a lid/resume/unlock event; never lock a session."""
+import argparse
+import json
+import sys
+sys.dont_write_bytecode = True
+from rice_recovery import EVENTS, recover
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('event', choices=EVENTS, nargs='?', default='check')
+parser.add_argument('--dry-run', action='store_true')
+args = parser.parse_args()
+print(json.dumps(recover(args.event, args.dry_run), ensure_ascii=False))

@@ -108,6 +108,11 @@ workspace "4"
 workspace "5"
 screenshot-path "~/Imagens/Capturas/Niri-%Y-%m-%d-%H-%M-%S.png"
 spawn-at-startup "systemctl" "--user" "start" "niri-rice.target"
+// Niri manages the internal panel. These hooks only inspect/recover Waybar.
+switch-events {
+    lid-close { spawn "sh" "-c" "exec ~/.config/niri/scripts/waybar-recover lid-close"; }
+    lid-open { spawn "sh" "-c" "exec ~/.config/niri/scripts/waybar-recover lid-open"; }
+}
 binds {
     Mod+Return hotkey-overlay-title="Terminal" { spawn "sh" "-c" "exec alacritty --config-file ~/.config/alacritty/niri.toml"; }
     Mod+D hotkey-overlay-title="Aplicativos" { spawn "sh" "-c" "exec fuzzel --config ~/.config/niri/fuzzel.ini"; }

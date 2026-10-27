@@ -16,9 +16,10 @@ if args.action == 'enable':
 elif args.action == 'disable':
     (DIAGNOSTICS/'enabled-until').unlink(missing_ok=True)
 else:
-    result = capture({'stop': 'service-stop', 'resume': 'after-resume'}.get(args.action, 'manual'), force=args.action == 'snapshot')
+    if args.action == 'resume':
+        from rice_recovery import recover
+        result = recover('after-resume')
+        print('waybar-recover:', result['result'])
+        raise SystemExit(0)
+    result = capture({'stop': 'service-stop'}.get(args.action, 'manual'), force=args.action == 'snapshot')
     if result: print(result)
-    if args.action == 'resume' and result:
-        # One bounded follow-up once outputs settle; never reloads or restarts.
-        time.sleep(3)
-        capture('after-resume-settled')
