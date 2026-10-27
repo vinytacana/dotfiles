@@ -29,6 +29,7 @@ class Dispatch(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         for mocked in [patch.object(lockscreen, 'STATE', Path(self.tmp.name)),
+                       patch.object(lockscreen, 'monitor_priority', return_value=['HDMI-A-1', 'eDP-1']),
                        patch.object(lockscreen, 'cached_background', return_value=None),
                        patch.object(lockscreen.shutil, 'which', return_value='/usr/bin/gtklock'),
                        patch.object(lockscreen, 'layout', return_value=Path(self.tmp.name)/'layout.ui'),
@@ -55,6 +56,22 @@ class Dispatch(unittest.TestCase):
         self.assertNotIn('GTK_THEME', args[2])
         self.assertFalse((lockscreen.STATE/'backend').exists())
         self.assertEqual(os.environ['GTK_THEME'], 'unrelated')
+        self.assertEqual(args[1].count('--monitor-priority'), 2)
+        self.assertNotIn('--follow-focus', args[1])
+
+    def test_follow_focus_candidate_does_not_change_default(self):
+        with patch.object(os, 'execvpe', side_effect=ExecAttempt) as execute:
+            with self.assertRaises(ExecAttempt): lockscreen.lock(True, True)
+        self.assertIn('--follow-focus', execute.call_args.args[1])
+        self.assertFalse((lockscreen.STATE/'backend').exists())
+
+    def test_optional_post_unlock_recovery_and_independent_rollback(self):
+        import shlex
+        args = lockscreen.gtklock_options()
+        command = args[args.index('--unlock-command')+1]
+        self.assertEqual(shlex.split(command), [str(ROOT/'scripts/waybar-recover'), 'unlocked'])
+        with patch.object(lockscreen, 'ROOT', Path(self.tmp.name)):
+            self.assertNotIn('--unlock-command', lockscreen.gtklock_options())
 
     def test_missing_binary_falls_back_before_start(self):
         (lockscreen.STATE/'backend').write_text('gtklock')
@@ -74,6 +91,33 @@ class Dispatch(unittest.TestCase):
                 patch.object(os, 'execvp', side_effect=ExecAttempt) as execute:
             with self.assertRaises(ExecAttempt): lockscreen.lock()
         self.assertIn('--image', execute.call_args.args[1])
+
+
+class Monitors(unittest.TestCase):
+    def priorities(self, outputs):
+        with patch.object(subprocess, 'check_output', return_value=json.dumps(outputs)):
+            return lockscreen.monitor_priority()
+
+    def test_external_first_internal_fallback_and_disconnected_ignored(self):
+        self.assertEqual(self.priorities({'eDP-1': {'logical': {'width':1920}},
+                                        'DP-2': {'logical': None},
+                                        'HDMI-A-1': {'logical': {'width':2560}}}), ['HDMI-A-1','eDP-1'])
+        self.assertEqual(self.priorities({'eDP-1': {'logical': {'width':1920}},
+                                        'HDMI-A-1': {'logical': None}}), ['eDP-1'])
+        self.assertEqual(self.priorities({'eDP-1': {'logical': None},
+                                        'HDMI-A-1': {'logical': {'width':2560}}}), ['HDMI-A-1'])
+
+    def test_unavailable_ipc_keeps_native_selection(self):
+        for error in [OSError('unavailable'), subprocess.TimeoutExpired('niri', 2)]:
+            with patch.object(subprocess, 'check_output', side_effect=error):
+                self.assertEqual(lockscreen.monitor_priority(), [])
+        self.assertEqual(self.priorities({}), [])
+
+    def test_follow_focus_requires_explicit_manual_lock(self):
+        result = subprocess.run([sys.executable, str(ROOT/'scripts/lockscreen'), '--follow-focus'],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('exige --gtklock', result.stderr)
 
 
 class Wallpaper(unittest.TestCase):
@@ -222,6 +266,26 @@ class Presentation(unittest.TestCase):
         handlers = {signal.get('name'): signal.get('handler') for signal in tree.findall(".//object[@id='input-field']/signal")}
         self.assertEqual(handlers, {'icon-release': 'window_pw_toggle_vis', 'activate': 'window_pw_check'})
         self.assertEqual(tree.find(".//object[@id='unlock-button']/signal").get('handler'), 'window_pw_check')
+
+    def test_entry_is_centered_relative_to_each_output_width(self):
+        for width, height in [(1366,768), (1920,1080), (2560,1440)]:
+            # OffscreenWindow retains its original default-size minimum.
+            # New windows exercise each actual allocation, including <1920px.
+            _, _, builder = lockscreen.validate_gtk()
+            window = self.Gtk.OffscreenWindow()
+            window.set_default_size(width, height)
+            window.get_style_context().add_class('focused')
+            revealer = builder.get_object('body-revealer')
+            revealer.set_transition_duration(0); revealer.set_reveal_child(True)
+            window.add(builder.get_object('window-box'))
+            try:
+                window.show_all(); self.settle(.1)
+                entry = builder.get_object('input-field')
+                actual = window.get_allocated_width()
+                x, _ = entry.translate_coordinates(window, 0, 0)
+                self.assertAlmostEqual(x+entry.get_allocated_width()/2, actual/2, delta=.5)
+                self.assertEqual(actual, width)
+            finally: window.destroy()
 
     def test_preview_state_without_destination_cannot_lock(self):
         # The parser must reject this before reaching the locker dispatcher.
