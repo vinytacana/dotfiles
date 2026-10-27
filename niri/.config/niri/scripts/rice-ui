@@ -69,7 +69,15 @@ class CalendarWindow(Popup):
         for title in [self.month_title, self.date_title]:
             title.set_ellipsize(Pango.EllipsizeMode.END)
             title.set_single_line_mode(True)
+            # Ellipsize alone lowers the minimum, not the natural width. Let
+            # the grid/card choose its width instead of the full date string;
+            # the expanding title box still uses all available space at 360px.
+            title.set_max_width_chars(18)
             titles.pack_start(title, False, False, 0)
+        # On narrow cards retain the full localized date on at most two lines.
+        self.date_title.set_single_line_mode(False)
+        self.date_title.set_line_wrap(True)
+        self.date_title.set_lines(2)
         heading.pack_start(titles, True, True, 0)
         self.previous_button = self.navigation_button('go-previous-symbolic', 'Mês anterior · Page Up', -1)
         self.next_button = self.navigation_button('go-next-symbolic', 'Próximo mês · Page Down', 1)

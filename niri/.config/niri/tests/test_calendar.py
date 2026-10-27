@@ -145,7 +145,7 @@ class CalendarTests(unittest.TestCase):
                 self.assertEqual(len({y for x,y in positions}),1)
                 self.assertEqual(sorted(x for x,y in positions),[x for x,y in positions])
         self.assertEqual(len(set(sizes)),1)
-        for width in [320,296]:
+        for width in [296,320,360,420]:
             self.window.panel.set_size_request(width,-1)
             settle()
             self.assertLessEqual(self.window.panel.get_allocated_width(),width)
@@ -154,6 +154,33 @@ class CalendarTests(unittest.TestCase):
         cell.set_state_flags(Gtk.StateFlags.PRELIGHT,False)
         settle()
         self.assertTrue(cell.get_state_flags() & Gtk.StateFlags.PRELIGHT)
+
+    def test_long_portuguese_dates_do_not_set_card_natural_width(self):
+        # Fixed dates reproduce the 309px Monday header regardless of when this
+        # test is run. Changing the expected width would conceal the defect.
+        self.show()
+        for today in [datetime.date(2026,10,26), datetime.date(2026,9,30)]:
+            self.window.current_day=today
+            for width in [296,320,360,420]:
+                self.window.panel.set_size_request(width,-1)
+                sizes=[]
+                for year,month in [(2026,2),(2026,3),(2026,8),(2026,9),(2026,12),(2027,1)]:
+                    self.window.select(datetime.date(year,month,15))
+                    settle()
+                    panel=self.window.panel
+                    sizes.append((panel.get_allocated_width(),panel.get_allocated_height()))
+                    self.assertEqual(panel.get_allocated_width(),width)
+                    self.assertFalse(self.window.month_title.get_layout().is_ellipsized())
+                    self.assertFalse(self.window.date_title.get_layout().is_ellipsized())
+                    self.assertEqual(self.window.date_title.get_tooltip_text(),self.window.date_text(today))
+                    for cell in self.window.cells.values():
+                        x,y=cell.translate_coordinates(panel,0,0)
+                        self.assertGreaterEqual(x,0)
+                        self.assertLessEqual(x+cell.get_allocated_width(),width)
+                        self.assertGreaterEqual(cell.get_allocated_width(),34)
+                        self.assertGreaterEqual(cell.get_allocated_height(),32)
+                        self.assertFalse(cell.get_child().get_layout().is_ellipsized())
+                self.assertEqual(len(set(sizes)),1)
 
 
 if __name__ == '__main__':
