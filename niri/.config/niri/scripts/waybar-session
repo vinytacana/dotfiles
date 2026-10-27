@@ -6,9 +6,24 @@ import json
 import os
 from pathlib import Path
 import shlex
+import subprocess
 from rice_common import ROOT, STATE, favorites, desktop, icon_file, appearance
 from waybar_presets import current, render
 from rice_bar import atomic_text
+
+# GTK image decoders may own sandbox children and GLib reaper threads. Keep
+# those in a short-lived helper: execing Waybar must not discard their reapers.
+if sys.argv[1:] == ['--icons']:
+    identities = json.load(sys.stdin)
+    if not isinstance(identities, list) or any(not isinstance(item, str) for item in identities):
+        raise ValueError('Ícones exigem uma lista de arquivos desktop')
+    icons = {}
+    for identity in identities:
+        app = desktop(identity)
+        if app:
+            icons[identity] = icon_file(app)
+    print(json.dumps(icons))
+    raise SystemExit(0)
 
 os.environ['LC_TIME'] = 'pt_BR.UTF-8'
 os.environ['LANGUAGE'] = 'pt_BR'
@@ -19,6 +34,12 @@ bars, css = render(preset)
 dock_enabled = not (STATE / 'dock-disabled').exists()
 # A disabled dock must not parse favorites or start GTK image decoders.
 items = favorites() if dock_enabled else []
+icon_paths = {}
+if items:
+    decoded = subprocess.run([sys.executable, str(Path(__file__).resolve()), '--icons'],
+                             input=json.dumps(items), stdout=subprocess.PIPE, text=True,
+                             check=True, timeout=15)
+    icon_paths = json.loads(decoded.stdout)
 dock = next(bar for bar in bars if bar['name'] == 'dock')
 dock['modules-center'] = []
 for number, identity in enumerate(items):
@@ -31,7 +52,7 @@ for number, identity in enumerate(items):
     dock[name] = {'exec': action + ' status', 'return-type': 'json', 'interval': 5,
                   'on-click': action + ' open', 'on-click-right':
                   shlex.quote(str(ROOT / 'scripts/settings-hub')) + ' favorites ' + shlex.quote(identity)}
-    icon = icon_file(app)
+    icon = icon_paths.get(identity)
     if icon:
         css += f'\n#custom-favorite-{number} {{ background-image: url({json.dumps(Path(icon).as_uri())}); }}\n'
 dock['modules-center'].append('custom/dock-edit')

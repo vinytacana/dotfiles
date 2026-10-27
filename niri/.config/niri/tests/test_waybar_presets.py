@@ -22,10 +22,32 @@ class Presets(unittest.TestCase):
         import rice_common
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder);state=base/'state';state.mkdir();(state/'dock-disabled').touch()
-            with patch.dict(os.environ,{'XDG_RUNTIME_DIR':str(base)}),patch.object(rice_common,'STATE',state),patch.object(rice_common,'favorites',side_effect=AssertionError('disabled dock must not read favorites')),patch.object(rice_common,'icon_file',side_effect=AssertionError('disabled dock must not decode icons')),patch.object(os,'execv'):
+            with patch.dict(os.environ,{'XDG_RUNTIME_DIR':str(base)}),patch.object(rice_common,'STATE',state),patch.object(rice_common,'favorites',side_effect=AssertionError('disabled dock must not read favorites')),patch.object(rice_common,'icon_file',side_effect=AssertionError('disabled dock must not decode icons')),patch.object(subprocess,'run',side_effect=AssertionError('disabled dock must not start icon helpers')),patch.object(os,'execv'):
                 runpy.run_path(str(ROOT/'scripts/waybar-session'),run_name='bar_generator_test')
             rendered=json.loads((base/'niri-rice/waybar.json').read_text())
             self.assertEqual([bar['name'] for bar in rendered],['top'])
+
+    def test_dock_decodes_icons_in_one_collected_helper_before_exec(self):
+        import rice_common
+        import subprocess
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder);state=base/'state';state.mkdir()
+            identities=['niri-settings.desktop','org.gnome.Nautilus.desktop']
+            def decode(args,**options):
+                self.assertEqual(args[-1],'--icons')
+                self.assertEqual(json.loads(options['input']),identities)
+                self.assertTrue(options['check']);self.assertEqual(options['timeout'],15)
+                return SimpleNamespace(stdout=json.dumps({identity:str(base/(str(i)+'.png')) for i,identity in enumerate(identities)}))
+            with patch.dict(os.environ,{'XDG_RUNTIME_DIR':str(base)}),patch.object(rice_common,'STATE',state), \
+                 patch.object(rice_common,'favorites',return_value=identities),patch.object(rice_common,'desktop',return_value=object()), \
+                 patch.object(rice_common,'icon_file',side_effect=AssertionError('decoder must not run in the exec parent')), \
+                 patch.object(subprocess,'run',side_effect=decode) as helper,patch.object(os,'execv') as execute:
+                runpy.run_path(str(ROOT/'scripts/waybar-session'),run_name='bar_generator_test')
+            helper.assert_called_once();execute.assert_called_once()
+            self.assertIn('0.png',(base/'niri-rice/waybar.css').read_text())
+            rendered=json.loads((base/'niri-rice/waybar.json').read_text())
+            self.assertEqual([bar['name'] for bar in rendered],['top','dock'])
 
     def test_media_layout_is_fixed_and_ordered(self):
         for identity in presets.profiles():
