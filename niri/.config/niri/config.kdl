@@ -57,7 +57,15 @@ window-rule {
 }
 window-rule {
     match is-floating=true
+    // Restore native CSD resize handles in floating mode despite prefer-no-csd.
+    tiled-state false
     shadow { on; }
+}
+window-rule {
+    match app-id="^org[.]gnome[.]Nautilus$"
+    // First floating placement only; subsequent moves are remembered by Niri.
+    // Keep normal launches tiled and their size unchanged.
+    default-floating-position x=24 y=24 relative-to="top-right"
 }
 window-rule {
     match app-id=r#"^(org\.gnome\.Calculator|org\.gnome\.Settings|org\.pulseaudio\.pavucontrol|blueman-manager|nm-connection-editor)$"#
@@ -149,8 +157,9 @@ binds {
     Mod+F { maximize-column; }
     Mod+Shift+F { fullscreen-window; }
     Mod+C { center-column; }
-    Mod+V { toggle-window-floating; }
-    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    // Native mouse gestures (no mouse binds): Mod+left drag moves, Mod+right resizes.
+    Mod+V hotkey-overlay-title="Alternar flutuante / mosaico" { toggle-window-floating; }
+    Mod+Shift+V hotkey-overlay-title="Foco entre flutuantes e mosaico" { switch-focus-between-floating-and-tiling; }
     Mod+Comma hotkey-overlay-title="Configurações" { spawn "sh" "-c" "exec ~/.config/niri/scripts/settings-hub"; }
     Mod+Shift+W hotkey-overlay-title="Escolher wallpaper" { spawn "sh" "-c" "exec ~/.config/niri/scripts/wallpaper-manager choose"; }
     Mod+Shift+D hotkey-overlay-title="Mostrar ou ocultar dock" { spawn "sh" "-c" "exec ~/.config/niri/scripts/dock-mode toggle"; }
