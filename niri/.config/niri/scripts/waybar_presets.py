@@ -48,6 +48,7 @@ def render(selected=None, theme=None):
         top['custom/notifications'] = baseline['custom/notifications']
         for name in ['network','bluetooth','battery']:
             top[name]['on-click'] = baseline[name]['on-click']
+        for field in ['format-wifi', 'max-length']: top['network'][field] = baseline['network'][field]
     uri = json.dumps((ROOT/'icons/control-center.svg').as_uri())
     css += f"\nwindow#waybar.top #custom-control {{ background-image: url({uri}); background-size: 20px 20px; background-repeat: no-repeat; background-position: center; min-width: 22px; }}\n"
     css += '#custom-control.open, window#waybar.top #custom-control.open { background-color: #45475a; box-shadow: inset 0 -2px #cba6f7; }\n'

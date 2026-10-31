@@ -108,6 +108,8 @@ class Presets(unittest.TestCase):
         expected['custom/notifications']=bars[0]['custom/notifications']
         expected['on-sigusr1']='show'
         for name in ['network','bluetooth','battery']:expected[name]['on-click']=bars[0][name]['on-click']
+        expected['network']['format-wifi']=json.loads((ROOT/'waybar.jsonc').read_text())[0]['network']['format-wifi']
+        expected['network']['max-length']=json.loads((ROOT/'waybar.jsonc').read_text())[0]['network']['max-length']
         self.assertEqual(bars[0],expected)
 
     def test_all_css_parses_in_gtk3(self):

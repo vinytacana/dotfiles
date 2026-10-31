@@ -94,3 +94,5 @@ window#waybar.top #custom-media-idle.paused { color: #a6adc8; }
 window#waybar.top #custom-media-idle.unavailable { border-color: #f38ba8; }
 window#waybar.top #tray { padding: 0 9px; }
 
+/* Empty custom modules hide their complete event box, including padding/border. */
+window#waybar.top #network { font-size: 13px; font-weight: normal; padding: 0 7px; }
