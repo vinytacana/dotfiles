@@ -35,6 +35,7 @@ XML='''<node>
 <method name="SetMetadata"><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
 <method name="SetState"><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
 <method name="InvalidateMetadata"/>
+<method name="SetCapabilities"><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/><arg type="b" direction="in"/></method>
 </interface></node>'''
 
 
@@ -70,6 +71,9 @@ def main():
         nonlocal status
         calls.append(name)
         changes={}
+        if name=='SetCapabilities':
+            for key,value in zip(['CanControl','CanPlay','CanPause','CanGoPrevious','CanGoNext'],parameters.unpack()):
+                player[key]=GLib.Variant('b',value);changes[key]=player[key]
         if name in ['SetMetadata','SetState']:
             if name=='SetState':status,title,artist,album=parameters.unpack()
             else:title,artist,album=parameters.unpack()

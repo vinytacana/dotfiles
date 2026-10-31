@@ -189,6 +189,55 @@ class StateTests(unittest.TestCase):
         observer.loading_expired(state.epoch)
         self.assertFalse(state.loading)
 
+    def test_long_unicode_title_and_tooltip_are_not_pretruncated(self):
+        title = 'How I Would Relearn Coding 日本語 <&> ' * 8
+        for player in [A, B, 'org.mpris.MediaPlayer2.chromium.test']:
+            state=MediaState();epoch=state.select(True,[player])
+            state.update(epoch,':1.20',{'PlaybackStatus':'Playing','Metadata':{'xesam:title':title}})
+            output=state.output()
+            self.assertIn(GLib.markup_escape_text(title.strip()),output['text'])
+            self.assertIn('Título: '+GLib.markup_escape_text(title.strip()),output['tooltip'])
+            self.assertNotIn('Artista:',output['tooltip']);self.assertNotIn('Álbum:',output['tooltip'])
+            self.assertIn('Estado: Reproduzindo',output['tooltip'])
+        state=self.state(metadata={'xesam:title':'Curto'})
+        self.assertIn('<b>Curto</b>',state.output()['text'])
+
+    def test_spotify_three_controls_and_browser_capabilities(self):
+        state=self.state();state.update(state.epoch,':1.20',{'CanPlay':True,'CanPause':True,'CanGoNext':True,'CanGoPrevious':True})
+        self.assertEqual([n for n,v in state.controls().items() if v['text']],['previous','play','next'])
+        self.assertEqual(state.controls()['play']['text'],'󰏤')
+        epoch=state.select(True,[B]);state.update(epoch,':1.21',{'PlaybackStatus':'Paused','Metadata':META,'CanControl':True,'CanPlay':True,'CanPause':True,'CanGoNext':False,'CanGoPrevious':False})
+        self.assertEqual([n for n,v in state.controls().items() if v['text']],['play'])
+        self.assertEqual(state.controls()['play']['text'],'󰐊')
+        state.update(epoch,':1.21',{'CanGoNext':True,'CanGoPrevious':True})
+        self.assertEqual(len([v for v in state.controls().values() if v['text']]),3)
+        state.update(epoch,':1.21',{'CanControl':False})
+        self.assertFalse(any(v['text'] for v in state.controls().values()))
+
+    def test_command_capabilities_match_visible_transport(self):
+        supported=runpy.run_path(str(ROOT/'scripts/media-player'))['supported']
+        for status,capability in [('Playing','CanPause'),('Paused','CanPlay'),('Stopped','CanPlay')]:
+            state=self.state(status);state.update(state.epoch,':1.20',{'CanPlay':True,'CanPause':True,'CanGoNext':False,'CanGoPrevious':False})
+            self.assertTrue(supported('play-pause',state.properties))
+            self.assertFalse(supported('next',state.properties))
+            self.assertFalse(supported('previous',state.properties))
+            state.update(state.epoch,':1.20',{capability:False})
+            self.assertFalse(supported('play-pause',state.properties))
+
+    def test_transport_snapshots_match_waybar_one_line_json_reader(self):
+        state=self.state();state.update(state.epoch,':1.20',{'CanPlay':True,'CanPause':True,'CanGoNext':False,'CanGoPrevious':False})
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)
+            for status in ['Playing','Paused','Stopped']:
+                state.update(state.epoch,':1.20',{'PlaybackStatus':status})
+                media['write_controls'](path,state.controls())
+                for name, expected in state.controls().items():
+                    output=subprocess.check_output(['cat',str(path/('media-'+name+'.json'))],text=True)
+                    # Same single-line boundary used in Waybar Custom::parseOutputJson.
+                    self.assertEqual(len(output.splitlines()),1)
+                    self.assertEqual(json.loads(output.splitlines()[0]),expected)
+                    self.assertEqual((path/('media-'+name+'.json')).stat().st_mode&0o777,0o600)
+
     def test_private_bus_integration(self):
         result = subprocess.run(['dbus-run-session', '--', sys.executable, '-B', str(Path(__file__).resolve()), '--private-integration'],
                                 capture_output=True, text=True, timeout=40)
@@ -241,6 +290,14 @@ def integration():
             second = launch([sys.executable, '-B', str(ROOT/'tests/mpris_fixture.py'), str(base/'second.json'), '--name', 'firefox_test'])
             wait(lambda: observer.state.name == B and observer.state.owner)
             method(B, 'Playing', 'Browser fixture'); wait(lambda: 'Browser fixture' in outputs[-1]['text'])
+            bus.call_sync(B,media['PATH'],'org.niri.Rice.MprisFixture','SetCapabilities',
+                GLib.Variant('(bbbbb)',(True,True,True,False,False)),None,Gio.DBusCallFlags.NONE,1000,None)
+            wait(lambda: not observer.state.properties.get('CanGoNext'))
+            subprocess.run([sys.executable,'-B',str(ROOT/'scripts/media-player'),'next'],env=env,check=True,capture_output=True,timeout=4)
+            assert 'Next' not in json.loads((base/'second.json').read_text())['calls']
+            bus.call_sync(B,media['PATH'],'org.niri.Rice.MprisFixture','SetCapabilities',
+                GLib.Variant('(bbbbb)',(True,True,True,True,True)),None,Gio.DBusCallFlags.NONE,1000,None)
+            wait(lambda: observer.state.properties.get('CanGoNext') is True)
             # Explicit target remains the rendered player, even if another is paused.
             subprocess.run([sys.executable, '-B', str(ROOT/'scripts/media-player'), 'next'], env=env, check=True, capture_output=True, timeout=4)
             assert 'Next' in json.loads((base/'second.json').read_text())['calls']

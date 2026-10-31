@@ -114,9 +114,12 @@ class MediaState:
             else:
                 text = 'Carregando mídia' if self.loading else {'Playing': 'Mídia em reprodução', 'Paused': 'Player sem faixa', 'Stopped': 'Player parado'}.get(status, 'Estado de mídia indisponível')
                 if not self.loading: state = 'empty'
-            tip = GLib.markup_escape_text(short)+' · '+{'Playing': 'Reproduzindo', 'Paused': 'Pausado',
+            display = next((value for key, value in [('spotify', 'Spotify'), ('chromium', 'Chromium'),
+                           ('chrome', 'Chrome'), ('firefox', 'Firefox'), ('vlc', 'VLC'), ('mpv', 'mpv')]
+                           if key in short.casefold()), short)
+            tip = 'Player: '+GLib.markup_escape_text(display)+'\nEstado: '+{'Playing': 'Reproduzindo', 'Paused': 'Pausado',
                     'Stopped': 'Parado'}.get(status, 'Aguardando estado MPRIS')
-            if title: tip += '\n'+GLib.markup_escape_text(title)
+            if title: tip += '\nTítulo: '+GLib.markup_escape_text(title)
             if artist: tip += '\nArtista: '+GLib.markup_escape_text(artist)
             if album: tip += '\nÁlbum: '+GLib.markup_escape_text(album)
             tip += '\nClique: abrir/focar player'
@@ -236,6 +239,13 @@ class Observer:
         for handler in self.order_signals: self.order.disconnect(handler)
 
 
+def write_controls(directory, controls):
+    # Waybar Custom::parseOutputJson reads one line, even for signal-driven exec.
+    from rice_bar import atomic_text
+    for name, value in controls.items():
+        atomic_text(directory/('media-'+name+'.json'), json.dumps(value, ensure_ascii=False)+'\n')
+
+
 def main():
     from rice_common import write_json
     path = target_path()
@@ -246,7 +256,7 @@ def main():
         nonlocal previous_controls
         controls = observer.state.controls()
         if controls != previous_controls:
-            for name, value in controls.items(): write_json(path.parent/('media-'+name+'.json'), value)
+            write_controls(path.parent, controls)
             parent = os.getppid()
             # Never signal a shell/test runner or an unprepared process.
             if (Path('/proc')/str(parent)/'comm').read_text().strip() == 'waybar':

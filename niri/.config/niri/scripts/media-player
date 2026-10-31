@@ -33,6 +33,16 @@ def selected(bus, target):
     return owner if actual == owner else None
 
 
+def supported(action, properties):
+    if properties.get('CanControl') is not True: return False
+    capability = {'previous': 'CanGoPrevious', 'next': 'CanGoNext'}.get(action)
+    if action == 'play-pause':
+        status = properties.get('PlaybackStatus')
+        if status not in ['Playing', 'Paused', 'Stopped']: return False
+        capability = 'CanPause' if status == 'Playing' else 'CanPlay'
+    return properties.get(capability) is True
+
+
 def main():
     if len(sys.argv) > 2:
         raise ValueError('Informe uma única ação de mídia')
@@ -51,8 +61,13 @@ def main():
         return
     if action in methods:
         if target.get('control') is True:
-            bus.call_sync(owner, '/org/mpris/MediaPlayer2', 'org.mpris.MediaPlayer2.Player',
-                methods[action], None, None, Gio.DBusCallFlags.NO_AUTO_START, 3000, None)
+            # Query only on click, using the same unique owner, never implicit playerctl.
+            props = bus.call_sync(owner, '/org/mpris/MediaPlayer2', 'org.freedesktop.DBus.Properties',
+                'GetAll', GLib.Variant('(s)', ('org.mpris.MediaPlayer2.Player',)), None,
+                Gio.DBusCallFlags.NO_AUTO_START, 1500, None).unpack()[0]
+            if supported(action, props):
+                bus.call_sync(owner, '/org/mpris/MediaPlayer2', 'org.mpris.MediaPlayer2.Player',
+                    methods[action], None, None, Gio.DBusCallFlags.NO_AUTO_START, 3000, None)
         return
     root=Gio.DBusProxy.new_sync(bus,Gio.DBusProxyFlags.DO_NOT_AUTO_START,None,
         owner,'/org/mpris/MediaPlayer2','org.mpris.MediaPlayer2',None)
