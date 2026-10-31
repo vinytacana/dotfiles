@@ -1,7 +1,7 @@
 """Preset rendering shared by the session, selector and validation (no daemon).
 
-MPRIS uses Waybar's 1s refresh guard: interval=0 caused a metadata feedback
-storm with multiple native modules and playerctld on the installed 0.15.0.
+Media title limits are natural GtkLabel widths, not minimum size requests.
+The label may shrink before controls/system indicators on a narrow output.
 """
 import json
 from rice_common import ROOT, STATE, read_json
@@ -36,7 +36,7 @@ def render(selected=None, theme=None):
         top.update({'height': settings['height'], 'margin-top': settings['top'],
                     'margin-left': settings['margin'], 'margin-right': settings['margin'],
                     'fixed-center': True, 'expand-left': False, 'expand-right': False})
-        # One label owns both track and idle; native modules render only controls.
+        # Natural title ceiling; no min-length or CSS width floor, so GTK can shrink it.
         top['custom/media-idle']['max-length'] = settings['track_chars']
         css += '\n'+(PRESETS/'common.css').read_text()+'\n'+(PRESETS/(selected+'.css')).read_text()
     # Upgrade only entry points in the archived preset; keep its layout intact.

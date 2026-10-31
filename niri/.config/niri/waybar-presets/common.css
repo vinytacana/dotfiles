@@ -74,7 +74,7 @@ window#waybar.top #custom-media-next {
     transition: background-color 140ms ease-in-out, color 140ms ease-in-out;
 }
 window#waybar.top #custom-media-idle.track {
-    border-radius: 17px 0 0 17px; padding: 0 12px; min-width: 200px;
+    border-radius: 17px 0 0 17px; padding: 0 12px; min-width: 0px;
 }
 window#waybar.top #custom-media-previous,
 window#waybar.top #custom-media-play,

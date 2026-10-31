@@ -88,7 +88,9 @@ class Presets(unittest.TestCase):
             self.assertIn('window#waybar.dock',css)
             if identity!='original':
                 self.assertTrue(bars[0]['fixed-center'])
-                self.assertLessEqual(bars[0]['custom/media-idle']['max-length'],32)
+                self.assertLessEqual(bars[0]['custom/media-idle']['max-length'],44)
+                self.assertGreaterEqual(bars[0]['custom/media-idle']['max-length'],40)
+                self.assertNotIn('min-length',bars[0]['custom/media-idle'])
                 self.assertLessEqual(bars[0]['niri/window']['max-length'],18)
                 self.assertTrue(all(bars[0][name]['interval']>=1 for name in bars[0] if name.startswith('mpris#')))
 
@@ -155,5 +157,68 @@ class Presets(unittest.TestCase):
             self.assertNotEqual(result.returncode,0)
             self.assertEqual(preference.read_bytes(),before)
 
+
+# Mirrors Waybar 0.15 setupWidgets: GtkBox center widget, packed side groups.
+def media_layout_fixture(width,chars=42,controls=3,preset='mocha-pill',palette='orbit',before=False,title='How I Would Relearn Coding If I Could Start Over Again · 日本語 & Unicode',artist='',case='probe',save=False,output_dir=None,playing=True,icon=''):
+ import gi,time
+ if '_media_gtk' not in globals():
+  gi.require_version('Gtk','3.0')
+  from gi.repository import Gtk,Gdk,Pango
+  globals()['_media_gtk']=(Gtk,Gdk,Pango)
+ Gtk,Gdk,Pango=globals()['_media_gtk']
+ bars,css=presets.render(preset,theme=palette)
+ if before:css=css.replace('min-width: 0px','min-width: 200px')
+ provider=Gtk.CssProvider();provider.load_from_data(css.encode());Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(),provider,800)
+ w=Gtk.OffscreenWindow();w.set_name('waybar');w.get_style_context().add_class('top');margin=bars[0].get('margin-left',12);w.set_default_size(width-2*margin,40)
+ box=Gtk.Box();w.add(box);left=Gtk.Box(spacing=6);right=Gtk.Box(spacing=6);center=Gtk.Box();left.get_style_context().add_class('modules-left');right.get_style_context().add_class('modules-right');center.get_style_context().add_class('modules-center');box.pack_start(left,False,False,0);box.set_center_widget(center);box.pack_end(right,False,False,0)
+ def group(parent,name):
+  v=Gtk.Box();v.set_name(name);parent.pack_start(v,False,False,0);return v
+ def label(parent,name,text,limit=None,classes=(),markup=False):
+  v=Gtk.Label();v.set_name(name);v.set_xalign(0)
+  v.set_markup(text) if markup else v.set_text(text)
+  for cls in classes:v.get_style_context().add_class(cls)
+  if limit:v.set_max_width_chars(limit);v.set_ellipsize(Pango.EllipsizeMode.END);v.set_single_line_mode(True)
+  parent.pack_start(v,False,False,0);return v
+ label(left,'custom-system','');label(left,'workspaces','1   2   3   4   5');resources=group(left,'resources');label(resources,'cpu','CPU 100%');label(resources,'memory','RAM 100%');label(left,'window','Visual Studio Code',16)
+ clock=label(center,'clock','31/10/2026  ·  12:34')
+ media=group(right,'media');player_icon='<span foreground="#1db954" size="large"></span>' if icon=='' else icon
+ text=player_icon+'  <b>'+__import__('html').escape(title)+'</b>'
+ if artist:text+=' · '+__import__('html').escape(artist)
+ track=label(media,'custom-media-idle',text,chars,('track','controls'),True)
+ names=[('play','󰏤')] if controls==1 else [('previous','󰒮'),('play','󰏤'),('next','󰒭')]
+ buttons=[]
+ for n,(name,glyph) in enumerate(names):
+  if name=='play' and not playing:glyph='󰐊'
+  buttons.append(label(media,'custom-media-'+name,glyph,classes=('last',) if n==len(names)-1 else ()))
+ conn=group(right,'connectivity');net=label(conn,'network','󰤨  Rede doméstica longa',12);label(conn,'pulseaudio',' 100%');label(conn,'bluetooth','');battery=label(conn,'battery','󰁹 100%');label(right,'tray','  ');session=group(right,'session');label(session,'custom-notifications','󰂚');label(session,'custom-control','☷');label(session,'custom-power','⏻')
+ w.show_all();deadline=time.monotonic()+.1
+ while time.monotonic()<deadline:
+  while Gtk.events_pending():Gtk.main_iteration_do(False)
+  time.sleep(.002)
+ x,_=clock.translate_coordinates(w,0,0);nx,_=net.translate_coordinates(w,0,0);bx,_=battery.translate_coordinates(w,0,0)
+ result={'requested':width,'window':w.get_allocated_width()+margin*2,'clock_x':x+clock.get_allocated_width()/2+margin,'caption_width':track.get_allocated_width(),'media_width':media.get_allocated_width(),'title_ellipsized':track.get_layout().is_ellipsized(),'network_width':net.get_allocated_width(),'battery_right':bx+battery.get_allocated_width()+margin,'buttons':[v.get_allocated_width() for v in buttons]}
+ if save:w.get_pixbuf().savev(str(Path(output_dir)/(case+'.png')),'png',[],[])
+ w.destroy();Gtk.StyleContext.remove_provider_for_screen(Gdk.Screen.get_default(),provider);return result
+
+class MediaLayout(unittest.TestCase):
+    def test_center_controls_and_system_survive_narrow_and_wide_outputs(self):
+        for palette in ['mocha','orbit']:
+            for preset in ['mocha-pill','floating-glass','dynamic-island-lite']:
+                limit=presets.profiles()[preset]['track_chars']
+                for width in [1366,1920,2560]:
+                    result=media_layout_fixture(width,chars=limit,preset=preset,palette=palette)
+                    self.assertEqual(result['window'],width,result)
+                    self.assertAlmostEqual(result['clock_x'],width/2,delta=1,msg=str(result))
+                    self.assertTrue(all(size>=30 for size in result['buttons']),result)
+                    self.assertGreater(result['network_width'],35,result)
+                    self.assertLessEqual(result['battery_right'],width,result)
+                    self.assertGreater(result['caption_width'],30,result)
+    def test_long_title_gets_more_space_without_moving_clock(self):
+        before=media_layout_fixture(1920,chars=26,before=True)
+        after=media_layout_fixture(1920,chars=42)
+        self.assertGreater(after['caption_width'],before['caption_width'])
+        self.assertEqual(after['clock_x'],before['clock_x'])
+        short=media_layout_fixture(1920,chars=42,title='Curto',controls=1)
+        self.assertFalse(short['title_ellipsized'])
 
 if __name__=='__main__':unittest.main(verbosity=2)
