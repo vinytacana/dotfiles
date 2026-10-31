@@ -53,15 +53,16 @@ class Presets(unittest.TestCase):
         for identity in presets.profiles():
             if identity=='original':continue
             top=presets.render(identity)[0][0]
-            self.assertEqual(top['group/media']['modules'],['custom/media-idle','mpris#previous','mpris#play','mpris#next'])
+            self.assertEqual(top['group/media']['modules'],['custom/media-idle','custom/media-previous','custom/media-play','custom/media-next'])
             self.assertNotIn('mpris#track',top)
             self.assertNotIn('interval',top['custom/media-idle'])
             self.assertFalse(top['custom/media-idle']['exec-on-event'])
-            self.assertEqual(len([n for n in top if n.startswith('mpris#')]),3)
+            self.assertEqual(len([n for n in top if n.startswith('mpris#')]),0)
             for name in ['previous','play','next']:
-                module=top['mpris#'+name]
-                self.assertEqual(module['player'],'playerctld')
-                self.assertGreaterEqual(module['interval'],1)
+                module=top['custom/media-'+name]
+                self.assertTrue(module['hide-empty-text'])
+                self.assertEqual(module['signal'],12)
+                self.assertNotIn('interval',module)
                 self.assertIn('media-player ',module['on-click'])
 
     def test_idle_player_reuses_desktop_focus_and_launch(self):

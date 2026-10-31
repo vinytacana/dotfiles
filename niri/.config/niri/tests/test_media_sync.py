@@ -37,7 +37,7 @@ class StateTests(unittest.TestCase):
 
     def test_player_without_metadata_is_transitional_not_idle(self):
         state = self.state('Stopped', {})
-        self.assertNotIn('idle', state.output()['class']); self.assertIn('Sincronizando', state.output()['text'])
+        self.assertNotIn('idle', state.output()['class']); self.assertIn('Player parado', state.output()['text']); self.assertFalse(any(v['text'] for v in state.controls().values()))
 
     def test_late_metadata_replaces_transition_in_same_label(self):
         state = self.state('Stopped', {}); state.update(state.epoch, ':1.20', {'Metadata': META})
@@ -101,12 +101,12 @@ class StateTests(unittest.TestCase):
             top = waybar_presets.render(preset)[0][0]
             if preset == 'original': continue
             modules = top['group/media']['modules']
-            self.assertEqual([name for name in modules if name.startswith('custom/')], ['custom/media-idle'])
+            self.assertEqual(modules, ['custom/media-idle','custom/media-previous','custom/media-play','custom/media-next'])
             self.assertNotIn('mpris#track', top)
             for name in modules[1:]:
                 self.assertNotIn('{title}', top[name]['format'])
                 self.assertNotIn('{artist}', top[name]['format'])
-                self.assertGreaterEqual(top[name]['interval'], 1)
+                self.assertNotIn('interval', top[name]); self.assertTrue(top[name]['hide-empty-text']); self.assertEqual(top[name]['signal'],12)
 
     def test_transport_refuses_replaced_or_gone_unique_owner(self):
         selected = runpy.run_path(str(ROOT/'scripts/media-player'))['selected']
@@ -162,6 +162,32 @@ class StateTests(unittest.TestCase):
                 self.assertEqual(create.call_count, 2)
             finally: observer.close()
             self.assertFalse(observer.alive); self.assertEqual(observer.pending, 0)
+
+    def test_controls_follow_metadata_status_and_each_capability(self):
+        state = self.state()
+        self.assertFalse(any(v['text'] for v in state.controls().values()))
+        state.update(state.epoch, ':1.20', {'CanPlay':True,'CanPause':True,'CanGoNext':False,'CanGoPrevious':False})
+        values = state.controls()
+        self.assertEqual([k for k,v in values.items() if v['text']], ['play'])
+        self.assertIn('last',values['play']['class'])
+        state.update(state.epoch, ':1.20', {'Metadata':{}})
+        self.assertFalse(any(v['text'] for v in state.controls().values()))
+        self.assertIn('standalone',state.output()['class'])
+        state.update(state.epoch, ':1.20', {'Metadata':META,'CanGoNext':True,'PlaybackStatus':'Stopped'})
+        self.assertTrue(state.controls()['play']['text'])
+        state.select(True, [])
+        self.assertFalse(any(v['text'] for v in state.controls().values()))
+
+    def test_loading_only_while_initial_query_is_pending(self):
+        state = MediaState(); state.select(True, [A])
+        self.assertIn('Carregando', state.output()['text'])
+        state.update(state.epoch, ':1.20', {'PlaybackStatus':'Paused','Metadata':{}})
+        self.assertIn('Player sem faixa',state.output()['text'])
+        self.assertNotIn('Carregando',state.output()['text'])
+        state.loading=True
+        observer=object.__new__(Observer);observer.state=state;observer.alive=True;observer.loading_timeout=1;observer.schedule=lambda:None
+        observer.loading_expired(state.epoch)
+        self.assertFalse(state.loading)
 
     def test_private_bus_integration(self):
         result = subprocess.run(['dbus-run-session', '--', sys.executable, '-B', str(Path(__file__).resolve()), '--private-integration'],

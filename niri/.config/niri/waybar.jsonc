@@ -162,64 +162,13 @@
       "orientation": "horizontal",
       "modules": [
         "custom/media-idle",
-        "mpris#previous",
-        "mpris#play",
-        "mpris#next"
+        "custom/media-previous",
+        "custom/media-play",
+        "custom/media-next"
       ]
     },
-    "mpris#previous": {
-      "player": "playerctld",
-      "interval": 1,
-      "format": "󰒮",
-      "max-length": 2,
-      "on-click": "~/.config/niri/scripts/media-player previous",
-      "status-icons": {
-        "playing": "󰏤",
-        "paused": "󰐊",
-        "stopped": "󰐊"
-      },
-      "tooltip-format": "Faixa anterior (player exibido no módulo de mídia)",
-      "min-length": 2,
-      "align": 0.5,
-      "on-click-middle": "~/.config/niri/scripts/media-player previous",
-      "on-click-right": "~/.config/niri/scripts/media-player next"
-    },
-    "mpris#play": {
-      "player": "playerctld",
-      "interval": 1,
-      "format": "{status_icon}",
-      "max-length": 2,
-      "on-click": "~/.config/niri/scripts/media-player play-pause",
-      "status-icons": {
-        "playing": "󰏤",
-        "paused": "󰐊",
-        "stopped": "󰐊"
-      },
-      "tooltip-format": "Reproduzir / pausar (player exibido no módulo de mídia)",
-      "min-length": 2,
-      "align": 0.5,
-      "on-click-middle": "~/.config/niri/scripts/media-player previous",
-      "on-click-right": "~/.config/niri/scripts/media-player next"
-    },
-    "mpris#next": {
-      "player": "playerctld",
-      "interval": 1,
-      "format": "󰒭",
-      "max-length": 2,
-      "on-click": "~/.config/niri/scripts/media-player next",
-      "status-icons": {
-        "playing": "󰏤",
-        "paused": "󰐊",
-        "stopped": "󰐊"
-      },
-      "tooltip-format": "Próxima faixa (player exibido no módulo de mídia)",
-      "min-length": 2,
-      "align": 0.5,
-      "on-click-middle": "~/.config/niri/scripts/media-player previous",
-      "on-click-right": "~/.config/niri/scripts/media-player next"
-    },
     "custom/media-idle": {
-      "exec": "~/.config/niri/scripts/media-idle",
+      "exec": "exec ~/.config/niri/scripts/media-idle",
       "return-type": "json",
       "format": "{text}",
       "hide-empty-text": true,
@@ -238,6 +187,39 @@
       "restart-interval": 3,
       "exec-on-event": false,
       "on-click": "~/.config/niri/scripts/settings-hub control"
+    },
+    "custom/media-previous": {
+      "exec": "cat \"${XDG_RUNTIME_DIR}/niri-rice/media-previous.json\"",
+      "signal": 12,
+      "return-type": "json",
+      "format": "{text}",
+      "hide-empty-text": true,
+      "exec-on-event": false,
+      "on-click": "~/.config/niri/scripts/media-player previous",
+      "on-click-middle": "~/.config/niri/scripts/media-player previous",
+      "on-click-right": "~/.config/niri/scripts/media-player next"
+    },
+    "custom/media-play": {
+      "exec": "cat \"${XDG_RUNTIME_DIR}/niri-rice/media-play.json\"",
+      "signal": 12,
+      "return-type": "json",
+      "format": "{text}",
+      "hide-empty-text": true,
+      "exec-on-event": false,
+      "on-click": "~/.config/niri/scripts/media-player play-pause",
+      "on-click-middle": "~/.config/niri/scripts/media-player previous",
+      "on-click-right": "~/.config/niri/scripts/media-player next"
+    },
+    "custom/media-next": {
+      "exec": "cat \"${XDG_RUNTIME_DIR}/niri-rice/media-next.json\"",
+      "signal": 12,
+      "return-type": "json",
+      "format": "{text}",
+      "hide-empty-text": true,
+      "exec-on-event": false,
+      "on-click": "~/.config/niri/scripts/media-player next",
+      "on-click-middle": "~/.config/niri/scripts/media-player previous",
+      "on-click-right": "~/.config/niri/scripts/media-player next"
     }
   },
   {

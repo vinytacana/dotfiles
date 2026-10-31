@@ -63,9 +63,12 @@ window#waybar.top #custom-notifications.unavailable { color: #f38ba8; }
 window#waybar.top #bluetooth.off, window#waybar.top #bluetooth.disabled { color: #6c7086; }
 window#waybar.top #battery.charging { color: #a6e3a1; }
 window#waybar.top #battery.warning { color: #f9e2af; }
-/* Um rótulo decide idle/faixa; controles MPRIS mantêm o guard de 1s. */
+/* Shared observer owns caption and transport availability. No native MPRIS boxes. */
 window#waybar.top #media { padding: 0; margin: 0; background: transparent; }
-window#waybar.top #mpris, window#waybar.top #custom-media-idle {
+window#waybar.top #custom-media-idle,
+window#waybar.top #custom-media-previous,
+window#waybar.top #custom-media-play,
+window#waybar.top #custom-media-next {
     background: rgba(24,24,37,0.94); color: #cdd6f4;
     padding: 0; margin: 2px 0; min-height: 34px;
     transition: background-color 140ms ease-in-out, color 140ms ease-in-out;
@@ -73,20 +76,21 @@ window#waybar.top #mpris, window#waybar.top #custom-media-idle {
 window#waybar.top #custom-media-idle.track {
     border-radius: 17px 0 0 17px; padding: 0 12px; min-width: 200px;
 }
-window#waybar.top #mpris.next { border-radius: 0 17px 17px 0; padding-right: 6px; }
-window#waybar.top #mpris.previous, window#waybar.top #mpris.play,
-window#waybar.top #mpris.next { font-size: 17px; min-width: 30px; padding-left: 2px; }
-window#waybar.top #mpris.play { color: #b4befe; }
-window#waybar.top #mpris.paused { color: #a6adc8; }
-window#waybar.top #mpris:hover,
-window#waybar.top #custom-media-idle:hover { background: #313244; color: #b4befe; }
-window#waybar.top #custom-media-idle.placeholder,
-window#waybar.top #custom-media-idle.connecting,
-window#waybar.top #custom-media-idle.stopped {
-    border: 1px solid #313244; border-radius: 17px;
-    color: #a6adc8; padding: 0 12px;
+window#waybar.top #custom-media-previous,
+window#waybar.top #custom-media-play,
+window#waybar.top #custom-media-next { font-size: 17px; min-width: 30px; padding-left: 2px; }
+window#waybar.top #custom-media-play { color: #b4befe; }
+window#waybar.top #custom-media-previous.last,
+window#waybar.top #custom-media-play.last,
+window#waybar.top #custom-media-next.last { border-radius: 0 17px 17px 0; padding-right: 6px; }
+window#waybar.top #custom-media-idle:hover,
+window#waybar.top #custom-media-previous:hover,
+window#waybar.top #custom-media-play:hover,
+window#waybar.top #custom-media-next:hover { background: #313244; color: #b4befe; }
+window#waybar.top #custom-media-idle.standalone {
+    border: 1px solid #313244; border-radius: 17px; color: #a6adc8; padding: 0 12px; min-width: 110px;
 }
-window#waybar.top #custom-media-idle.placeholder { min-width: 110px; }
 window#waybar.top #custom-media-idle.paused { color: #a6adc8; }
 window#waybar.top #custom-media-idle.unavailable { border-color: #f38ba8; }
 window#waybar.top #tray { padding: 0 9px; }
+

@@ -2,7 +2,7 @@
 """One label: idle OR track, using playerctld's selected real MPRIS owner.
 
 Reuses the existing Waybar child; no polling or playerctl subprocesses.
-Native transport icons retain their existing one-second update guard.
+Transport snapshots are refreshed by a Waybar realtime signal, only on change.
 """
 import json
 import os
@@ -36,6 +36,7 @@ class MediaState:
         self.owner = None
         self.properties = {}
         self.epoch = 0
+        self.loading = False
 
     def select(self, service, names):
         name = next((n for n in names if isinstance(n, str) and
@@ -44,6 +45,7 @@ class MediaState:
             self.epoch += 1
             self.service, self.name = bool(service), name
             self.owner, self.properties = None, {}
+            self.loading = bool(name)
         return self.epoch
 
     def update(self, epoch, owner, values, invalidated=()):
@@ -52,6 +54,7 @@ class MediaState:
         if owner != self.owner:
             self.properties = {}
         self.owner = owner
+        self.loading = False
         if not owner:
             self.properties = {}
         else:
@@ -63,6 +66,24 @@ class MediaState:
     def target(self):
         return {'name': self.name, 'owner': self.owner,
                 'control': self.properties.get('CanControl') is True}
+
+    def controls(self):
+        props = self.properties
+        metadata = props.get('Metadata')
+        ready = bool(self.service and self.owner and isinstance(metadata, dict) and
+                     clean(metadata.get('xesam:title')) and props.get('CanControl') is True and
+                     props.get('PlaybackStatus') in ['Playing', 'Paused', 'Stopped'])
+        playing = props.get('PlaybackStatus') == 'Playing'
+        result = {}
+        for name, capability, icon, tooltip in [
+            ('previous', 'CanGoPrevious', '󰒮', 'Faixa anterior'),
+            ('play', 'CanPause' if playing else 'CanPlay', '󰏤' if playing else '󰐊', 'Pausar' if playing else 'Reproduzir'),
+            ('next', 'CanGoNext', '󰒭', 'Próxima faixa')]:
+            result[name] = {'text': icon if ready and props.get(capability) is True else '',
+                            'tooltip': tooltip, 'class': name}
+        visible = [name for name, value in result.items() if value['text']]
+        if visible: result[visible[-1]]['class'] = [visible[-1], 'last']
+        return result
 
     def output(self):
         icon = '<span foreground="#1db954" size="large"></span>'
@@ -85,20 +106,22 @@ class MediaState:
             artist = ', '.join(filter(None, (clean(x) for x in artists))) if isinstance(artists, list) else ''
             album = clean(metadata.get('xesam:album'))
             status = self.properties.get('PlaybackStatus')
-            state = status.lower() if status in ['Playing', 'Paused', 'Stopped'] else 'connecting'
+            state = status.lower() if status in ['Playing', 'Paused', 'Stopped'] else 'unknown'
             if title and self.owner:
                 text = '<b>'+GLib.markup_escape_text(title)+'</b>'
                 if artist:
                     text += ' <span alpha="80%">· '+GLib.markup_escape_text(artist)+'</span>'
             else:
-                text = {'Playing': 'Mídia em reprodução', 'Paused': 'Mídia pausada'}.get(status, 'Sincronizando mídia')
+                text = 'Carregando mídia' if self.loading else {'Playing': 'Mídia em reprodução', 'Paused': 'Player sem faixa', 'Stopped': 'Player parado'}.get(status, 'Estado de mídia indisponível')
+                if not self.loading: state = 'empty'
             tip = GLib.markup_escape_text(short)+' · '+{'Playing': 'Reproduzindo', 'Paused': 'Pausado',
                     'Stopped': 'Parado'}.get(status, 'Aguardando estado MPRIS')
             if title: tip += '\n'+GLib.markup_escape_text(title)
             if artist: tip += '\nArtista: '+GLib.markup_escape_text(artist)
             if album: tip += '\nÁlbum: '+GLib.markup_escape_text(album)
             tip += '\nClique: abrir/focar player'
-        return {'text': icon+'  '+text, 'class': [state, 'track' if self.name else 'placeholder'], 'tooltip': tip}
+        return {'text': icon+'  '+text, 'class': [state, 'track' if self.name else 'placeholder',
+                'controls' if any(v['text'] for v in self.controls().values()) else 'standalone'], 'tooltip': tip}
 
 
 class Observer:
@@ -112,6 +135,7 @@ class Observer:
         self.bound = None
         self.previous = None
         self.previous_target = None
+        self.loading_timeout = 0
         self.alive = True
         self.order = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION, FLAGS, None,
             NAME, PATH, 'com.github.altdesktop.playerctld', None)
@@ -131,9 +155,10 @@ class Observer:
             self.write_target(target)
             self.previous_target = target
         output = self.state.output()
-        if output != self.previous:
+        if output != self.previous or self.state.controls() != getattr(self, 'previous_controls', None):
             self.publish(output)
             self.previous = output
+            self.previous_controls = self.state.controls()
         return False
 
     def detach(self):
@@ -156,6 +181,10 @@ class Observer:
             # A proxy restart with an unchanged player name is also a new epoch.
             self.state.epoch += 1
             self.state.owner, self.state.properties = None, {}
+            self.state.loading = bool(self.state.name)
+            if self.loading_timeout: GLib.source_remove(self.loading_timeout); self.loading_timeout = 0
+            if self.state.name:
+                self.loading_timeout = GLib.timeout_add(2000, self.loading_expired, self.state.epoch)
             epoch = self.state.epoch
             if self.state.name:
                 self.request = Gio.Cancellable()
@@ -163,10 +192,19 @@ class Observer:
                     self.state.name, PATH, PLAYER, self.request, self.ready, epoch)
         self.schedule()
 
+    def loading_expired(self, epoch):
+        self.loading_timeout = 0
+        if self.alive and epoch == self.state.epoch:
+            self.state.loading = False
+            self.schedule()
+        return False
+
     def ready(self, source, result, epoch):
         try: proxy = Gio.DBusProxy.new_for_bus_finish(result)
         except GLib.Error:
-            if self.alive and epoch == self.state.epoch: self.schedule()
+            if self.alive and epoch == self.state.epoch:
+                self.state.loading = False
+                self.schedule()
             return
         if not self.alive or epoch != self.state.epoch: return
         self.request = None
@@ -176,12 +214,12 @@ class Observer:
         self.refresh(proxy, epoch)
 
     def refresh(self, proxy, epoch):
-        values = {key: value.unpack() for key in ['Metadata', 'PlaybackStatus', 'CanControl']
+        values = {key: value.unpack() for key in ['Metadata', 'PlaybackStatus', 'CanControl', 'CanGoNext', 'CanGoPrevious', 'CanPlay', 'CanPause']
                   if (value := proxy.get_cached_property(key)) is not None}
         if self.state.update(epoch, proxy.get_name_owner(), values): self.schedule()
 
     def changed(self, proxy, values, invalidated, epoch):
-        keys = {'Metadata', 'PlaybackStatus', 'CanControl'}
+        keys = {'Metadata', 'PlaybackStatus', 'CanControl', 'CanGoNext', 'CanGoPrevious', 'CanPlay', 'CanPause'}
         changed = {key: value for key, value in values.unpack().items() if key in keys}
         invalidated = [key for key in invalidated if key in keys]
         if (changed or invalidated) and self.state.update(epoch, proxy.get_name_owner(), changed, invalidated):
@@ -192,6 +230,7 @@ class Observer:
 
     def close(self):
         self.alive = False
+        if self.loading_timeout: GLib.source_remove(self.loading_timeout); self.loading_timeout = 0
         if self.pending: GLib.source_remove(self.pending); self.pending = 0
         self.detach()
         for handler in self.order_signals: self.order.disconnect(handler)
@@ -202,8 +241,21 @@ def main():
     path = target_path()
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     loop = GLib.MainLoop()
-    observer = Observer(lambda output: print(json.dumps(output, ensure_ascii=False), flush=True),
-                        lambda target: write_json(path, target))
+    previous_controls = None
+    def publish(output):
+        nonlocal previous_controls
+        controls = observer.state.controls()
+        if controls != previous_controls:
+            for name, value in controls.items(): write_json(path.parent/('media-'+name+'.json'), value)
+            parent = os.getppid()
+            # Never signal a shell/test runner or an unprepared process.
+            if (Path('/proc')/str(parent)/'comm').read_text().strip() == 'waybar':
+                caught = next(line.split()[1] for line in (Path('/proc')/str(parent)/'status').read_text().splitlines() if line.startswith('SigCgt:'))
+                sig = signal.SIGRTMIN+12
+                if int(caught, 16) & (1 << (sig-1)): os.kill(parent, sig)
+            previous_controls = controls
+        print(json.dumps(output, ensure_ascii=False), flush=True)
+    observer = Observer(publish, lambda target: write_json(path, target))
     def stop():
         loop.quit()
         return False
