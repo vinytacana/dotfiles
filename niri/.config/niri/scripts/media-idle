@@ -1,11 +1,12 @@
 #!/usr/bin/python3
-"""Waybar idle placeholder: one D-Bus listener, no polling or file state.
+"""One label: idle OR track, using playerctld's selected real MPRIS owner.
 
-Stopped is distinct from no player: hide obsolete tags and describe it in the
-tooltip. Playing/Paused remain entirely in Waybar's native MPRIS modules.
-This process belongs to Waybar and is stopped with its service.
+Reuses the existing Waybar child; no polling or playerctl subprocesses.
+Native transport icons retain their existing one-second update guard.
 """
 import json
+import os
+from pathlib import Path
 import signal
 import sys
 sys.dont_write_bytecode = True
@@ -15,66 +16,205 @@ from gi.repository import Gio, GLib, GLibUnix
 
 NAME = 'org.mpris.MediaPlayer2.playerctld'
 PATH = '/org/mpris/MediaPlayer2'
+PLAYER = 'org.mpris.MediaPlayer2.Player'
+FLAGS = Gio.DBusProxyFlags.DO_NOT_AUTO_START
 
 
-def placeholder(owner, players, status):
-    if owner and players and status in ['Playing', 'Paused']:
-        return {'text': '', 'class': 'hidden'}
-    if not owner:
-        state, detail = 'unavailable', 'Serviço MPRIS indisponível. Clique para abrir/focar Spotify.'
-    elif not players:
-        state, detail = 'idle', 'Nenhum player disponível. Clique para abrir/focar Spotify.'
-    elif status == 'Stopped':
-        state, detail = 'stopped', 'Player parado; metadados ocultos. Clique para focar o player.'
-    else:
-        state, detail = 'unavailable', 'Estado MPRIS indisponível. Clique para focar o player.'
-    return {'text': '<span foreground="#1db954"></span>  Nada tocando',
-            'class': state, 'tooltip': detail}
+def target_path():
+    return Path(os.environ['XDG_RUNTIME_DIR'])/'niri-rice/media-target.json'
+
+
+def clean(value):
+    return ' '.join(value.split()) if isinstance(value, str) else ''
+
+
+class MediaState:
+    """Selection epochs reject late replies/signals from a departed player."""
+    def __init__(self):
+        self.service = False
+        self.name = None
+        self.owner = None
+        self.properties = {}
+        self.epoch = 0
+
+    def select(self, service, names):
+        name = next((n for n in names if isinstance(n, str) and
+                     n.startswith('org.mpris.MediaPlayer2.') and n != NAME), None) if service else None
+        if (bool(service), name) != (self.service, self.name):
+            self.epoch += 1
+            self.service, self.name = bool(service), name
+            self.owner, self.properties = None, {}
+        return self.epoch
+
+    def update(self, epoch, owner, values, invalidated=()):
+        if epoch != self.epoch or not self.name:
+            return False
+        if owner != self.owner:
+            self.properties = {}
+        self.owner = owner
+        if not owner:
+            self.properties = {}
+        else:
+            for key in invalidated:
+                self.properties.pop(key, None)
+            self.properties.update(values)
+        return True
+
+    def target(self):
+        return {'name': self.name, 'owner': self.owner,
+                'control': self.properties.get('CanControl') is True}
+
+    def output(self):
+        icon = '<span foreground="#1db954" size="large"></span>'
+        if not self.service:
+            text, state = 'Mídia indisponível', 'unavailable'
+            tip = 'Serviço MPRIS indisponível. Clique para abrir/focar Spotify.'
+        elif not self.name:
+            text, state = 'Nada tocando', 'idle'
+            tip = 'Nenhum player MPRIS disponível. Clique para abrir/focar Spotify.'
+        else:
+            short = self.name.removeprefix('org.mpris.MediaPlayer2.')
+            if 'spotify' not in short.casefold():
+                icon = next((glyph for key, glyph in [('firefox', ''), ('chrome', ''),
+                            ('chromium', ''), ('vlc', '󰕼'), ('mpv', '󰐹')]
+                            if key in short.casefold()), '󰝚')
+            metadata = self.properties.get('Metadata')
+            metadata = metadata if isinstance(metadata, dict) else {}
+            title = clean(metadata.get('xesam:title'))
+            artists = metadata.get('xesam:artist', [])
+            artist = ', '.join(filter(None, (clean(x) for x in artists))) if isinstance(artists, list) else ''
+            album = clean(metadata.get('xesam:album'))
+            status = self.properties.get('PlaybackStatus')
+            state = status.lower() if status in ['Playing', 'Paused', 'Stopped'] else 'connecting'
+            if title and self.owner:
+                text = '<b>'+GLib.markup_escape_text(title)+'</b>'
+                if artist:
+                    text += ' <span alpha="80%">· '+GLib.markup_escape_text(artist)+'</span>'
+            else:
+                text = {'Playing': 'Mídia em reprodução', 'Paused': 'Mídia pausada'}.get(status, 'Sincronizando mídia')
+            tip = GLib.markup_escape_text(short)+' · '+{'Playing': 'Reproduzindo', 'Paused': 'Pausado',
+                    'Stopped': 'Parado'}.get(status, 'Aguardando estado MPRIS')
+            if title: tip += '\n'+GLib.markup_escape_text(title)
+            if artist: tip += '\nArtista: '+GLib.markup_escape_text(artist)
+            if album: tip += '\nÁlbum: '+GLib.markup_escape_text(album)
+            tip += '\nClique: abrir/focar player'
+        return {'text': icon+'  '+text, 'class': [state, 'track' if self.name else 'placeholder'], 'tooltip': tip}
+
+
+class Observer:
+    def __init__(self, publish, write_target=None):
+        self.publish, self.write_target = publish, write_target
+        self.state = MediaState()
+        self.pending = 0
+        self.proxy = None
+        self.proxy_signals = []
+        self.request = None
+        self.bound = None
+        self.previous = None
+        self.previous_target = None
+        self.alive = True
+        self.order = Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION, FLAGS, None,
+            NAME, PATH, 'com.github.altdesktop.playerctld', None)
+        self.order_signals = [self.order.connect('notify::g-name-owner', self.select),
+                              self.order.connect('g-properties-changed', self.select)]
+        self.select()
+
+    def schedule(self):
+        if self.alive and not self.pending:
+            self.pending = GLib.idle_add(self.emit)
+
+    def emit(self):
+        self.pending = 0
+        if not self.alive: return False
+        target = self.state.target()
+        if self.write_target and target != self.previous_target:
+            self.write_target(target)
+            self.previous_target = target
+        output = self.state.output()
+        if output != self.previous:
+            self.publish(output)
+            self.previous = output
+        return False
+
+    def detach(self):
+        if self.request:
+            self.request.cancel()
+            self.request = None
+        if self.proxy:
+            for handler in self.proxy_signals: self.proxy.disconnect(handler)
+        self.proxy, self.proxy_signals = None, []
+
+    def select(self, *_):
+        if not self.alive: return
+        owner = self.order.get_name_owner()
+        names = self.order.get_cached_property('PlayerNames')
+        self.state.select(bool(owner), names.unpack() if names and owner else [])
+        bound = (owner, self.state.name)
+        if bound != self.bound:
+            self.detach()
+            self.bound = bound
+            # A proxy restart with an unchanged player name is also a new epoch.
+            self.state.epoch += 1
+            self.state.owner, self.state.properties = None, {}
+            epoch = self.state.epoch
+            if self.state.name:
+                self.request = Gio.Cancellable()
+                Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, FLAGS, None,
+                    self.state.name, PATH, PLAYER, self.request, self.ready, epoch)
+        self.schedule()
+
+    def ready(self, source, result, epoch):
+        try: proxy = Gio.DBusProxy.new_for_bus_finish(result)
+        except GLib.Error:
+            if self.alive and epoch == self.state.epoch: self.schedule()
+            return
+        if not self.alive or epoch != self.state.epoch: return
+        self.request = None
+        self.proxy = proxy
+        self.proxy_signals = [proxy.connect('g-properties-changed', self.changed, epoch),
+                              proxy.connect('notify::g-name-owner', self.owner_changed, epoch)]
+        self.refresh(proxy, epoch)
+
+    def refresh(self, proxy, epoch):
+        values = {key: value.unpack() for key in ['Metadata', 'PlaybackStatus', 'CanControl']
+                  if (value := proxy.get_cached_property(key)) is not None}
+        if self.state.update(epoch, proxy.get_name_owner(), values): self.schedule()
+
+    def changed(self, proxy, values, invalidated, epoch):
+        keys = {'Metadata', 'PlaybackStatus', 'CanControl'}
+        changed = {key: value for key, value in values.unpack().items() if key in keys}
+        invalidated = [key for key in invalidated if key in keys]
+        if (changed or invalidated) and self.state.update(epoch, proxy.get_name_owner(), changed, invalidated):
+            self.schedule()
+
+    def owner_changed(self, proxy, spec, epoch):
+        self.refresh(proxy, epoch)
+
+    def close(self):
+        self.alive = False
+        if self.pending: GLib.source_remove(self.pending); self.pending = 0
+        self.detach()
+        for handler in self.order_signals: self.order.disconnect(handler)
 
 
 def main():
-    flags = Gio.DBusProxyFlags.DO_NOT_AUTO_START
-    proxies = [Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION, flags, None, NAME, PATH, iface, None)
-               for iface in ['com.github.altdesktop.playerctld', 'org.mpris.MediaPlayer2.Player']]
+    from rice_common import write_json
+    path = target_path()
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     loop = GLib.MainLoop()
-    pending = 0
-    previous = None
-
-    def emit():
-        nonlocal pending, previous
-        pending = 0
-        owner = bool(proxies[0].get_name_owner())
-        names = proxies[0].get_cached_property('PlayerNames')
-        status = proxies[1].get_cached_property('PlaybackStatus')
-        output = placeholder(owner, names.unpack() if names else [], status.unpack() if status else None)
-        if output != previous:
-            if output['class'] == 'unavailable':
-                print('media-idle: estado do proxy MPRIS indisponível', file=sys.stderr, flush=True)
-            print(json.dumps(output, ensure_ascii=False), flush=True)
-            previous = output
-        return False
-
-    def schedule(*_):
-        nonlocal pending
-        if not pending:
-            pending = GLib.timeout_add(150, emit)
-
-    def changed(proxy, values, invalidated):
-        if {'PlayerNames', 'PlaybackStatus'} & (set(values.unpack()) | set(invalidated)):
-            schedule()
-
-    for proxy in proxies:
-        proxy.connect('notify::g-name-owner', schedule)
-        proxy.connect('g-properties-changed', changed)
+    observer = Observer(lambda output: print(json.dumps(output, ensure_ascii=False), flush=True),
+                        lambda target: write_json(path, target))
     def stop():
         loop.quit()
         return False
-    GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, stop)
-    emit()
-    loop.run()
+    handler = GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, stop)
+    try: loop.run()
+    finally:
+        observer.close()
+        if GLib.MainContext.default().find_source_by_id(handler): GLib.source_remove(handler)
 
 
 if __name__ == '__main__':
-    try:main()
+    try: main()
     except (GLib.Error, OSError) as error:
-        sys.exit('media-idle: ' + str(error))
+        sys.exit('media-idle: '+str(error))

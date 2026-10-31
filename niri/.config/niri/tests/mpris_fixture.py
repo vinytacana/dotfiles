@@ -33,18 +33,22 @@ XML='''<node>
 </interface>
 <interface name="org.niri.Rice.MprisFixture">
 <method name="SetMetadata"><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
+<method name="SetState"><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
+<method name="InvalidateMetadata"/>
 </interface></node>'''
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('state',type=Path)
-    parser.add_argument('--name',default='rice_test',choices=['rice_test','rice_test2'])
+    parser.add_argument('--name',default='rice_test',choices=['rice_test','rice_test2','spotify_test','firefox_test'])
+    parser.add_argument('--initial-status',default='Playing',choices=['Playing','Paused','Stopped'])
+    parser.add_argument('--empty',action='store_true',help='Start without track metadata')
     parser.add_argument('--duration',type=int,default=90)
     args=parser.parse_args()
     state=args.state;state.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
     loop=GLib.MainLoop();bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
-    calls=[];status='Playing'
+    calls=[];status=args.initial_status
     root={'CanQuit':GLib.Variant('b',True),'CanRaise':GLib.Variant('b',False),'HasTrackList':GLib.Variant('b',False),
           'Identity':GLib.Variant('s','Rice test fixture'),'DesktopEntry':GLib.Variant('s',args.name),
           'SupportedUriSchemes':GLib.Variant('as',[]),'SupportedMimeTypes':GLib.Variant('as',[])}
@@ -56,6 +60,7 @@ def main():
             'Volume':GLib.Variant('d',1),'Position':GLib.Variant('x',0),'MinimumRate':GLib.Variant('d',1),
             'MaximumRate':GLib.Variant('d',1),'CanGoNext':GLib.Variant('b',True),'CanGoPrevious':GLib.Variant('b',True),
             'CanPlay':GLib.Variant('b',True),'CanPause':GLib.Variant('b',True),'CanSeek':GLib.Variant('b',False),'CanControl':GLib.Variant('b',True)}
+    if args.empty:player['Metadata']=GLib.Variant('a{sv}',{})
     def save():
         state.write_text(json.dumps({'calls':calls,'status':status}));state.chmod(0o600)
     def get_property(connection,sender,path,interface,name):
@@ -65,8 +70,9 @@ def main():
         nonlocal status
         calls.append(name)
         changes={}
-        if name=='SetMetadata':
-            title,artist,album=parameters.unpack()
+        if name in ['SetMetadata','SetState']:
+            if name=='SetState':status,title,artist,album=parameters.unpack()
+            else:title,artist,album=parameters.unpack()
             values=player['Metadata'].unpack()
             values={key:GLib.Variant('o' if key=='mpris:trackid' else ('x' if key=='mpris:length' else ('as' if key=='xesam:artist' else 's')),value) for key,value in values.items()}
             values.update({'xesam:title':GLib.Variant('s',title),'xesam:artist':GLib.Variant('as',[artist]),'xesam:album':GLib.Variant('s',album)})
@@ -78,7 +84,9 @@ def main():
         save()
         invocation.return_value(None)
         bus.emit_signal(None,path,'org.freedesktop.DBus.Properties','PropertiesChanged',
-                        GLib.Variant('(sa{sv}as)',('org.mpris.MediaPlayer2.Player',changes,[])))
+                        GLib.Variant('(sa{sv}as)',('org.mpris.MediaPlayer2.Player',
+                            {} if name=='InvalidateMetadata' else changes,
+                            ['Metadata'] if name=='InvalidateMetadata' else [])))
         if name=='Quit':loop.quit()
     info=Gio.DBusNodeInfo.new_for_xml(XML)
     for interface in info.interfaces:bus.register_object('/org/mpris/MediaPlayer2',interface,method,get_property,None)

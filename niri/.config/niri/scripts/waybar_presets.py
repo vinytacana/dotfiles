@@ -36,9 +36,8 @@ def render(selected=None, theme=None):
         top.update({'height': settings['height'], 'margin-top': settings['top'],
                     'margin-left': settings['margin'], 'margin-right': settings['margin'],
                     'fixed-center': True, 'expand-left': False, 'expand-right': False})
-        top['mpris#track']['max-length'] = settings['track_chars']
-        # Same character width on both ends keeps transport controls stationary.
-        top['mpris#track']['min-length'] = settings['track_chars']
+        # One label owns both track and idle; native modules render only controls.
+        top['custom/media-idle']['max-length'] = settings['track_chars']
         css += '\n'+(PRESETS/'common.css').read_text()+'\n'+(PRESETS/(selected+'.css')).read_text()
     # Upgrade only entry points in the archived preset; keep its layout intact.
     if selected == 'original':

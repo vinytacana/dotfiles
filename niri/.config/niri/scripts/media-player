@@ -1,5 +1,8 @@
 #!/usr/bin/python3
-"""Raise the selected player; with none, focus-or-launch the installed Spotify."""
+"""Act on the exact MPRIS owner shown by the media label, never an implicit player."""
+import json
+import os
+from pathlib import Path
 import sys
 sys.dont_write_bytecode=True
 import gi
@@ -17,16 +20,49 @@ def spotify():
     raise ValueError('Spotify não está instalado (arquivo .desktop ausente).')
 
 
+def selected(bus, target):
+    name, owner = target.get('name'), target.get('owner')
+    if not isinstance(name, str) or not name.startswith('org.mpris.MediaPlayer2.') or not isinstance(owner, str) or not owner.startswith(':'):
+        return None
+    try:
+        actual = bus.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+            'org.freedesktop.DBus', 'GetNameOwner', GLib.Variant('(s)', (name,)),
+            GLib.VariantType.new('(s)'), Gio.DBusCallFlags.NONE, 1500, None).unpack()[0]
+    except GLib.Error:
+        return None
+    return owner if actual == owner else None
+
+
 def main():
-    root=Gio.DBusProxy.new_for_bus_sync(Gio.BusType.SESSION,Gio.DBusProxyFlags.DO_NOT_AUTO_START,None,
-        'org.mpris.MediaPlayer2.playerctld','/org/mpris/MediaPlayer2','org.mpris.MediaPlayer2',None)
-    entry=root.get_cached_property('DesktopEntry')
-    if not entry or not entry.unpack():
-        spotify()
+    if len(sys.argv) > 2:
+        raise ValueError('Informe uma única ação de mídia')
+    action = sys.argv[1] if len(sys.argv) == 2 else 'raise'
+    methods = {'previous': 'Previous', 'play-pause': 'PlayPause', 'next': 'Next'}
+    if action not in [*methods, 'raise']:
+        raise ValueError('Ação de mídia desconhecida')
+    path = Path(os.environ['XDG_RUNTIME_DIR'])/'niri-rice/media-target.json'
+    try: target = json.loads(path.read_text())
+    except (FileNotFoundError, ValueError): target = {}
+    if not isinstance(target, dict): target = {}
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    owner = selected(bus, target)
+    if not owner:
+        if action == 'raise' and not target.get('name'): spotify()
         return
-    identity=entry.unpack().removesuffix('.desktop')+'.desktop'
-    if focus(identity):return
-    root.call_sync('Raise',None,Gio.DBusCallFlags.NONE,3000,None)
+    if action in methods:
+        if target.get('control') is True:
+            bus.call_sync(owner, '/org/mpris/MediaPlayer2', 'org.mpris.MediaPlayer2.Player',
+                methods[action], None, None, Gio.DBusCallFlags.NO_AUTO_START, 3000, None)
+        return
+    root=Gio.DBusProxy.new_sync(bus,Gio.DBusProxyFlags.DO_NOT_AUTO_START,None,
+        owner,'/org/mpris/MediaPlayer2','org.mpris.MediaPlayer2',None)
+    entry=root.get_cached_property('DesktopEntry')
+    if entry and entry.unpack():
+        identity=entry.unpack().removesuffix('.desktop')+'.desktop'
+        if focus(identity):return
+    can_raise = root.get_cached_property('CanRaise')
+    if can_raise and can_raise.unpack():
+        root.call_sync('Raise',None,Gio.DBusCallFlags.NONE,3000,None)
 
 
 if __name__ == '__main__':

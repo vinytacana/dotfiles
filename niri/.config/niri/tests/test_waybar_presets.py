@@ -49,35 +49,20 @@ class Presets(unittest.TestCase):
             rendered=json.loads((base/'niri-rice/waybar.json').read_text())
             self.assertEqual([bar['name'] for bar in rendered],['top','dock'])
 
-    def test_media_layout_is_fixed_and_ordered(self):
+    def test_media_has_exactly_one_track_or_idle_label(self):
         for identity in presets.profiles():
             if identity=='original':continue
             top=presets.render(identity)[0][0]
-            self.assertEqual(top['group/media']['modules'],['custom/media-idle','mpris#track','mpris#previous','mpris#play','mpris#next'])
-            track=top['mpris#track']
-            self.assertEqual(track['min-length'],track['max-length'])
-            self.assertIn('{album}',track['tooltip-format'])
-            self.assertFalse(track['enable-tooltip-len-limits'])
-            self.assertIn('#1db954',track['player-icons']['spotify'])
-            self.assertEqual(len([n for n in top if n.startswith('mpris#')]),4)
+            self.assertEqual(top['group/media']['modules'],['custom/media-idle','mpris#previous','mpris#play','mpris#next'])
+            self.assertNotIn('mpris#track',top)
             self.assertNotIn('interval',top['custom/media-idle'])
+            self.assertFalse(top['custom/media-idle']['exec-on-event'])
+            self.assertEqual(len([n for n in top if n.startswith('mpris#')]),3)
             for name in ['previous','play','next']:
                 module=top['mpris#'+name]
-                self.assertEqual(module['player'],track['player'])
+                self.assertEqual(module['player'],'playerctld')
                 self.assertGreaterEqual(module['interval'],1)
-
-    def test_media_placeholder_states(self):
-        placeholder=runpy.run_path(str(ROOT/'scripts/media-idle'))['placeholder']
-        for status in ['Playing','Paused']:
-            self.assertEqual(placeholder(True,['spotify'],status)['text'],'')
-        idle=placeholder(True,[],'Paused')
-        stopped=placeholder(True,['spotify'],'Stopped')
-        unavailable=placeholder(False,[],None)
-        self.assertIn('Nada tocando',idle['text'])
-        self.assertEqual(idle['class'],'idle')
-        self.assertEqual(stopped['class'],'stopped')
-        self.assertIn('metadados ocultos',stopped['tooltip'])
-        self.assertEqual(unavailable['class'],'unavailable')
+                self.assertIn('media-player ',module['on-click'])
 
     def test_idle_player_reuses_desktop_focus_and_launch(self):
         spotify=runpy.run_path(str(ROOT/'scripts/media-player'))['spotify']
@@ -102,7 +87,7 @@ class Presets(unittest.TestCase):
             self.assertIn('window#waybar.dock',css)
             if identity!='original':
                 self.assertTrue(bars[0]['fixed-center'])
-                self.assertLessEqual(bars[0]['mpris#track']['max-length'],32)
+                self.assertLessEqual(bars[0]['custom/media-idle']['max-length'],32)
                 self.assertLessEqual(bars[0]['niri/window']['max-length'],18)
                 self.assertTrue(all(bars[0][name]['interval']>=1 for name in bars[0] if name.startswith('mpris#')))
 

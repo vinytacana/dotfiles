@@ -53,6 +53,7 @@ for name in ['clipboard-defaults.json','dock-defaults.json','swaync.json']:
     json.loads((root/name).read_text())
 print('V4 JSON: OK')
 run('Waybar presets JSON/GTK3/selection',[sys.executable,str(root/'tests/test_waybar_presets.py')])
+run('Media state selection/events/controls',[sys.executable,str(root/'tests/test_media_sync.py')])
 run('Waybar state/serialization/diagnostics',[sys.executable,str(root/'tests/test_bar_lifecycle.py')])
 run('Waybar bounded event recovery',[sys.executable,str(root/'tests/test_waybar_recovery.py')])
 run('Mocha OSD GTK/events/privacy/lifecycle',[sys.executable,str(root/'tests/test_osd.py')])
